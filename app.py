@@ -13,10 +13,28 @@ if 'current_page' not in st.session_state:
 def navigate_to(page_name):
     st.session_state.current_page = page_name
 
-# --- BILINGUAL DICTIONARY (Native Hebrew Context) ---
+# --- BILINGUAL DICTIONARY & UI TOGGLE ---
 st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("", ["עברית", "English"])
 lang = "he" if lang_choice == "עברית" else "en"
+
+# --- RTL CSS INJECTION ---
+if lang == "he":
+    st.markdown(
+        """
+        <style>
+        .stApp, .stSidebar, .stMarkdown, .stText {
+            direction: rtl;
+            text-align: right;
+        }
+        /* Keep dataframes readable when mixing English codes and Hebrew text */
+        .stDataFrame {
+            direction: rtl; 
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 t = {
     "en": {
@@ -78,7 +96,7 @@ st.sidebar.markdown("---")
 
 st.title(t[lang]["title"])
 
-# --- DATA INITIALIZATION (Bilingual Support) ---
+# --- DATA INITIALIZATION ---
 if not os.path.exists("equipment.csv"):
     pd.DataFrame({
         "ID": ["MAC-01", "MAC-02", "SHP-01"],
@@ -126,13 +144,18 @@ if not os.path.exists("maintenance.csv"):
 def load_data(file): return pd.read_csv(file)
 def save_data(df, file): df.to_csv(file, index=False)
 
+# LOAD & FIX DATA TYPES (Prevents StreamlitAPIExceptions)
 eq_df = load_data("equipment.csv")
+eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
+eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
+
 cons_df = load_data("consumables.csv")
 jigs_df = load_data("jigs.csv")
 maint_df = load_data("maintenance.csv")
 
 # Identify preferred language column suffix
 L = "_HE" if lang == "he" else "_EN"
+
 
 # --- PAGE: HOMEPAGE (DASHBOARD) ---
 if st.session_state.current_page == "Homepage":
@@ -202,11 +225,11 @@ elif st.session_state.current_page == "Jigs":
         column_config={
             "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Jig_Name_EN": st.column_config.TextColumn("Jig Name (English)"),
-            "Jig_Name_HE": st.column_config.TextColumn("שם ג'יג (עברית)"),
+            "Jig_Name_HE": st.column_config.TextColumn("שם עזר/ג'יג (עברית)"),
             "Mode_Config_EN": st.column_config.TextColumn("Configuration (English)"),
-            "Mode_Config_HE": st.column_config.TextColumn("תצורה (עברית)"),
+            "Mode_Config_HE": st.column_config.TextColumn("תצורה או כיוון (עברית)"),
             "Storage_EN": st.column_config.TextColumn("Storage (English)"),
-            "Storage_HE": st.column_config.TextColumn("מיקום (עברית)"),
+            "Storage_HE": st.column_config.TextColumn("מקום אחסון (עברית)"),
         }
     )
     if not edited_jigs.equals(jigs_df):
@@ -235,8 +258,10 @@ elif st.session_state.current_page == "Consumables":
 # --- PAGE: MAINTENANCE ---
 elif st.session_state.current_page == "Maintenance":
     st.header(t[lang]["nav_maint"])
+    
+    # Convert string dates to actual datetime.date objects for the DateColumn to read properly
     maint_display = maint_df.copy()
-    maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.strftime('%Y-%m-%d')
+    maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.date
     
     edited_maint = st.data_editor(
         maint_display, num_rows="dynamic", use_container_width=True,
@@ -249,5 +274,7 @@ elif st.session_state.current_page == "Maintenance":
         }
     )
     if not edited_maint.equals(maint_display):
+        # Convert the date objects back to strings before saving to the CSV
+        edited_maint['Last_Serviced'] = pd.to_datetime(edited_maint['Last_Serviced']).dt.strftime('%Y-%m-%d')
         save_data(edited_maint, "maintenance.csv")
         st.rerun()
