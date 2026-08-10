@@ -15,21 +15,30 @@ def navigate_to(page_name):
 
 # --- BILINGUAL DICTIONARY & UI TOGGLE ---
 st.sidebar.title("🌐 שפה / Language")
-lang_choice = st.sidebar.radio("", ["עברית", "English"])
+lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- RTL CSS INJECTION ---
+# --- AGGRESSIVE RTL CSS INJECTION ---
 if lang == "he":
     st.markdown(
         """
         <style>
-        .stApp, .stSidebar, .stMarkdown, .stText {
-            direction: rtl;
-            text-align: right;
+        /* Force RTL direction and right alignment on the entire app and text elements */
+        .stApp, .block-container, .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, div {
+            direction: rtl !important;
+            text-align: right !important;
         }
-        /* Keep dataframes readable when mixing English codes and Hebrew text */
-        .stDataFrame {
-            direction: rtl; 
+        /* Ensure tables and data grids respect RTL */
+        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div, .stDataFrame {
+            direction: rtl !important;
+        }
+        /* Fix button text alignment */
+        .stButton>button {
+            text-align: center !important; 
+        }
+        /* Correct the sidebar flex ordering */
+        section[data-testid="stSidebar"] {
+            direction: rtl !important;
         }
         </style>
         """,
@@ -56,7 +65,7 @@ t = {
         "col_grade": "Grade",
         "col_stock": "Current Stock",
         "col_thresh": "Reorder Threshold",
-        "col_ppu": "Price/Unit (₪)",
+        "col_ppu": "Price/Unit (ILS)",
         "col_freq": "Frequency (Days)",
         "col_last_serv": "Last Serviced",
     },
@@ -144,7 +153,7 @@ if not os.path.exists("maintenance.csv"):
 def load_data(file): return pd.read_csv(file)
 def save_data(df, file): df.to_csv(file, index=False)
 
-# LOAD & FIX DATA TYPES (Prevents StreamlitAPIExceptions)
+# LOAD & FIX DATA TYPES (Prevents StreamlitAPIExceptions on empty cells)
 eq_df = load_data("equipment.csv")
 eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
@@ -153,14 +162,18 @@ cons_df = load_data("consumables.csv")
 jigs_df = load_data("jigs.csv")
 maint_df = load_data("maintenance.csv")
 
-# Identify preferred language column suffix
 L = "_HE" if lang == "he" else "_EN"
-
 
 # --- PAGE: HOMEPAGE (DASHBOARD) ---
 if st.session_state.current_page == "Homepage":
     st.header(t[lang]["nav_home"])
-    col1, col2 = st.columns(2)
+    st.markdown("---")
+    
+    # If Hebrew, we unpack the columns in reverse so the first visual block is on the right
+    if lang == "he":
+        col2, col1 = st.columns(2)
+    else:
+        col1, col2 = st.columns(2)
     
     # Low Stock Block
     with col1:
@@ -187,7 +200,12 @@ if st.session_state.current_page == "Homepage":
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
             for idx, row in overdue.iterrows():
-                c_text, c_btn = st.columns([3, 1])
+                # If Hebrew, flip the text and button columns
+                if lang == "he":
+                    c_btn, c_text = st.columns([1, 3])
+                else:
+                    c_text, c_btn = st.columns([3, 1])
+                    
                 with c_text:
                     st.warning(f"🔧 **{row[f'Task{L}']}** ({row['Machine_ID']})")
                 with c_btn:
@@ -199,16 +217,23 @@ if st.session_state.current_page == "Homepage":
 # --- PAGE: EQUIPMENT MASTER ---
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
+    
+    # Reorder columns dynamically for LTR vs RTL readability
+    if lang == "he":
+        cols = ["Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"]
+    else:
+        cols = ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade"]
+        
     edited_eq = st.data_editor(
-        eq_df, num_rows="dynamic", use_container_width=True,
+        eq_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
             "Name": st.column_config.TextColumn(t[lang]["col_name"]),
-            "Role_EN": st.column_config.TextColumn("Role (English)"),
-            "Role_HE": st.column_config.TextColumn("ייעוד (עברית)"),
-            "Manual_Link": st.column_config.LinkColumn("Manual URL"),
-            "Product_Link": st.column_config.LinkColumn("Product URL"),
+            "Role_EN": st.column_config.TextColumn("Role"),
+            "Role_HE": st.column_config.TextColumn("ייעוד"),
+            "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן"),
+            "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר"),
             "Grade": st.column_config.SelectboxColumn(t[lang]["col_grade"], options=["S", "A", "B", "C", "D", "E", "F"]),
             "Est_Value": None # Hidden
         }
@@ -220,16 +245,22 @@ elif st.session_state.current_page == "Equipment":
 # --- PAGE: JIGS & MODES ---
 elif st.session_state.current_page == "Jigs":
     st.header(t[lang]["nav_jigs"])
+    
+    if lang == "he":
+        cols = ["Storage_HE", "Mode_Config_HE", "Jig_Name_HE", "Machine_ID"]
+    else:
+        cols = ["Machine_ID", "Jig_Name_EN", "Mode_Config_EN", "Storage_EN"]
+        
     edited_jigs = st.data_editor(
-        jigs_df, num_rows="dynamic", use_container_width=True,
+        jigs_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
-            "Jig_Name_EN": st.column_config.TextColumn("Jig Name (English)"),
-            "Jig_Name_HE": st.column_config.TextColumn("שם עזר/ג'יג (עברית)"),
-            "Mode_Config_EN": st.column_config.TextColumn("Configuration (English)"),
-            "Mode_Config_HE": st.column_config.TextColumn("תצורה או כיוון (עברית)"),
-            "Storage_EN": st.column_config.TextColumn("Storage (English)"),
-            "Storage_HE": st.column_config.TextColumn("מקום אחסון (עברית)"),
+            "Jig_Name_EN": st.column_config.TextColumn("Jig Name"),
+            "Jig_Name_HE": st.column_config.TextColumn("שם עזר/ג'יג"),
+            "Mode_Config_EN": st.column_config.TextColumn("Configuration"),
+            "Mode_Config_HE": st.column_config.TextColumn("תצורה או כיוון"),
+            "Storage_EN": st.column_config.TextColumn("Storage Location"),
+            "Storage_HE": st.column_config.TextColumn("מקום אחסון"),
         }
     )
     if not edited_jigs.equals(jigs_df):
@@ -239,12 +270,18 @@ elif st.session_state.current_page == "Jigs":
 # --- PAGE: CONSUMABLES ---
 elif st.session_state.current_page == "Consumables":
     st.header(t[lang]["nav_cons"])
+    
+    if lang == "he":
+        cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"]
+    else:
+        cols = ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
+        
     edited_cons = st.data_editor(
-        cons_df, num_rows="dynamic", use_container_width=True,
+        cons_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
-            "Item_EN": st.column_config.TextColumn("Item Name (English)"),
-            "Item_HE": st.column_config.TextColumn("שם פריט (עברית)"),
+            "Item_EN": st.column_config.TextColumn("Item Name"),
+            "Item_HE": st.column_config.TextColumn("שם פריט"),
             "Stock": st.column_config.NumberColumn(t[lang]["col_stock"]),
             "Threshold": st.column_config.NumberColumn(t[lang]["col_thresh"]),
             "PPU": st.column_config.NumberColumn(t[lang]["col_ppu"], format="₪%.2f"),
@@ -259,22 +296,26 @@ elif st.session_state.current_page == "Consumables":
 elif st.session_state.current_page == "Maintenance":
     st.header(t[lang]["nav_maint"])
     
-    # Convert string dates to actual datetime.date objects for the DateColumn to read properly
+    # Safely convert to dates
     maint_display = maint_df.copy()
     maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.date
     
+    if lang == "he":
+        cols = ["Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"]
+    else:
+        cols = ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced"]
+        
     edited_maint = st.data_editor(
-        maint_display, num_rows="dynamic", use_container_width=True,
+        maint_display, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
-            "Task_EN": st.column_config.TextColumn("Task (English)"),
-            "Task_HE": st.column_config.TextColumn("תיאור טיפול (עברית)"),
+            "Task_EN": st.column_config.TextColumn("Task Description"),
+            "Task_HE": st.column_config.TextColumn("תיאור טיפול/בדיקה"),
             "Freq_Days": st.column_config.NumberColumn(t[lang]["col_freq"]),
             "Last_Serviced": st.column_config.DateColumn(t[lang]["col_last_serv"], format="YYYY-MM-DD")
         }
     )
     if not edited_maint.equals(maint_display):
-        # Convert the date objects back to strings before saving to the CSV
         edited_maint['Last_Serviced'] = pd.to_datetime(edited_maint['Last_Serviced']).dt.strftime('%Y-%m-%d')
         save_data(edited_maint, "maintenance.csv")
         st.rerun()
