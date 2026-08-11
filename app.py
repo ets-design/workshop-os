@@ -6,7 +6,7 @@ from datetime import datetime
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Garage Workshop OS", page_icon="🪚", layout="wide")
 
-# --- SESSION STATE & AUTHENTICATION ---
+# --- SESSION STATE FOR NAVIGATION ---
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Homepage"
 
@@ -110,22 +110,23 @@ t = {
     }
 }
 
-# --- ADMIN AUTHENTICATION ---
-st.sidebar.markdown("---")
-admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
-is_admin = (admin_pin == "0000")
-
-if is_admin:
-    st.sidebar.success(t[lang]["admin_mode"])
-else:
-    st.sidebar.info(t[lang]["user_mode"])
-
+# --- NAVIGATION MENUS (Top of Sidebar) ---
 st.sidebar.markdown("---")
 if st.sidebar.button(t[lang]["nav_home"], use_container_width=True): navigate_to("Homepage")
 if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_to("Equipment")
 if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to("Jigs")
 if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to("Consumables")
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
+
+# --- ADMIN AUTHENTICATION (Bottom of Sidebar) ---
+st.sidebar.markdown("---")
+admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
+is_admin = (admin_pin == "2004")
+
+if is_admin:
+    st.sidebar.success(t[lang]["admin_mode"])
+else:
+    st.sidebar.info(t[lang]["user_mode"])
 
 st.title(t[lang]["title"])
 
@@ -222,33 +223,42 @@ if st.session_state.current_page == "Homepage":
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    if is_admin:
-        with st.expander(t[lang]["add_new_equip"]):
-            with st.form("form_equip", clear_on_submit=True):
-                f_c1, f_c2, f_c3 = st.columns(3)
-                n_id = f_c1.text_input(t[lang]["col_mach_id"])
-                n_cat = f_c2.text_input(t[lang]["col_cat"])
-                n_name = f_c3.text_input(t[lang]["col_name"])
-                
-                f_c4, f_c5 = st.columns(2)
-                n_role_en = f_c4.text_input("Role (English)")
-                n_role_he = f_c5.text_input("ייעוד (עברית)")
-                
-                f_c6, f_c7, f_c8 = st.columns(3)
-                n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
-                n_prod = f_c7.text_input("Product URL / קישור למוצר")
-                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
-                
+    with st.expander(t[lang]["add_new_equip"]):
+        with st.form("form_equip", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_id = f_c1.text_input(t[lang]["col_mach_id"])
+            n_cat = f_c2.text_input(t[lang]["col_cat"])
+            n_name = f_c3.text_input(t[lang]["col_name"])
+            
+            f_c4, f_c5 = st.columns(2)
+            n_role_en = f_c4.text_input("Role (English)")
+            n_role_he = f_c5.text_input("ייעוד (עברית)")
+            
+            f_c6, f_c7, f_c8 = st.columns(3)
+            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+            n_prod = f_c7.text_input("Product URL / קישור למוצר")
+            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+            
+            # Show Private Checkbox only if Admin
+            if is_admin:
                 n_private = st.checkbox(t[lang]["is_private"])
-                
-                if st.form_submit_button(t[lang]["btn_submit"]):
-                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
-                    eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                    save_data(eq_df, "equipment.csv")
-                    st.rerun()
+            else:
+                n_private = False
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                save_data(eq_df, "equipment.csv")
+                st.rerun()
 
+    # Filter out private tools for standard users
     eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
+    
     cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
+    
+    # Remove Is_Private column for non-admins
+    if not is_admin:
+        cols.remove("Is_Private")
     
     edited_eq = st.data_editor(
         eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True,
@@ -266,8 +276,10 @@ elif st.session_state.current_page == "Equipment":
         }
     )
     if not edited_eq.equals(eq_df_view):
-        if is_admin: save_data(edited_eq, "equipment.csv")
+        if is_admin: 
+            save_data(edited_eq, "equipment.csv")
         else: 
+            # Safely merge updates for non-admins without touching the hidden private items
             eq_df.update(edited_eq)
             save_data(eq_df, "equipment.csv")
         st.rerun()
@@ -388,7 +400,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Req_Safety", "Safety_Cleared"]
     
-    # Disable safety clearance for non-admins to prevent them from approving their own work
     disabled_cols = [] if is_admin else ["Safety_Cleared", "Req_Safety"]
 
     edited_maint = st.data_editor(
