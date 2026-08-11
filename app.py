@@ -21,28 +21,25 @@ lang = "he" if lang_choice == "עברית" else "en"
 # --- PRO-CRM AESTHETIC CSS INJECTION ---
 css_base = """
 <style>
-/* 1. FORCE FONTS GLOBALLY (Overrides Streamlit's deep internal classes) */
+/* 1. SAFE TYPOGRAPHY (Prioritize Calibri, exclude internal icons to prevent "Text-on-Text" bugs) */
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
-* {
-    font-family: 'Calibri', 'Heebo', sans-serif !important;
+
+html, body, p, h1, h2, h3, h4, h5, h6, span, label, div.stButton button p {
+    font-family: 'Calibri', 'Heebo', sans-serif;
+}
+/* PROTECT STREAMLIT UI ICONS */
+span.material-symbols-rounded, i, svg {
+    font-family: 'Material Symbols Rounded', sans-serif !important;
 }
 
 /* 2. CRM BACKGROUND & CLEANUP */
-.stApp {
-    background-color: #F8FAFC !important; /* Soft slate gray background */
-}
-header, [data-testid="stHeader"], footer, #MainMenu {
-    display: none !important; /* Hide Streamlit branding and top padding */
-}
+.stApp { background-color: #F8FAFC !important; }
+header, [data-testid="stHeader"], footer, #MainMenu { display: none !important; }
 
 /* 3. HEADINGS */
-h1, h2, h3 {
-    color: #0F172A !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.01em !important;
-}
+h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
 
-/* 4. SIDEBAR MENU STYLING (Looks like a real navigation menu) */
+/* 4. SIDEBAR MENU STYLING (Fixed disappearing button bug) */
 [data-testid="stSidebar"] {
     background-color: #FFFFFF !important;
     box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
@@ -57,6 +54,7 @@ h1, h2, h3 {
     font-weight: 500 !important;
     padding: 0.5rem 1rem !important;
     transition: all 0.2s ease !important;
+    width: 100% !important; 
 }
 [data-testid="stSidebar"] div.stButton > button:hover {
     background-color: #F1F5F9 !important;
@@ -64,7 +62,7 @@ h1, h2, h3 {
 }
 
 /* 5. MAIN ACTION BUTTONS (Save, Done, Approve) */
-div.stButton > button {
+[data-testid="stVerticalBlock"] div.stButton > button {
     background-color: #2563EB !important;
     color: #FFFFFF !important;
     border-radius: 8px !important;
@@ -73,7 +71,7 @@ div.stButton > button {
     font-weight: 500 !important;
     transition: all 0.2s ease-in-out !important;
 }
-div.stButton > button:hover {
+[data-testid="stVerticalBlock"] div.stButton > button:hover {
     background-color: #1D4ED8 !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3) !important;
@@ -95,14 +93,12 @@ div.stButton > button:hover {
     margin-bottom: 1.5rem !important;
 }
 
-/* 7. ALERTS */
+/* 7. ALERTS & INPUTS */
 [data-testid="stAlert"] {
     border-radius: 10px !important;
     border: none !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
 }
-
-/* 8. INPUTS */
 input, select, textarea {
     border-radius: 8px !important;
     border: 1px solid #CBD5E1 !important;
@@ -129,12 +125,9 @@ input, select, textarea {
 }
 [data-testid="stSidebar"] div.stButton > button p {
     text-align: right !important;
-    width: 100% !important;
 }
 @media screen and (min-width: 768px) {
-    .stApp {
-        direction: rtl !important;
-    }
+    .stApp { direction: rtl !important; }
 }
 </style>
 """
@@ -144,7 +137,6 @@ css_ltr = """
 /* LTR SPECIFIC ALIGNMENT */
 [data-testid="stSidebar"] div.stButton > button p {
     text-align: left !important;
-    width: 100% !important;
 }
 </style>
 """
@@ -255,7 +247,7 @@ if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
 # --- ADMIN AUTHENTICATION ---
-st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True) # Push to bottom
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
 is_admin = (admin_pin == "2004")
@@ -469,7 +461,7 @@ elif st.session_state.current_page == "Equipment":
     disabled_cols_eq = [] if is_admin else cols
     
     edited_eq = st.data_editor(
-        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq, height=550,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -523,7 +515,7 @@ elif st.session_state.current_page == "Jigs":
     disabled_cols_jigs = [] if is_admin else cols
     
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs, height=550,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -567,7 +559,7 @@ elif st.session_state.current_page == "Consumables":
     disabled_cols_cons = [] if is_admin else [c for c in cols if c != "Stock"]
     
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons, height=550,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -624,7 +616,7 @@ elif st.session_state.current_page == "Maintenance":
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
-        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True,
+        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True, height=550,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
