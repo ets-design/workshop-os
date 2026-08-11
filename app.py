@@ -18,21 +18,29 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- AGGRESSIVE RTL CSS INJECTION ---
+# --- RESPONSIVE RTL CSS INJECTION ---
 if lang == "he":
     st.markdown(
         """
         <style>
-        .stApp, .block-container, .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, div {
-            direction: rtl !important;
+        /* Safe RTL layout that preserves Streamlit's mobile responsive grid */
+        .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
+            direction: rtl;
+        }
+        /* Ensure text and inputs align right */
+        p, h1, h2, h3, h4, h5, h6, span, label, input, select, textarea {
             text-align: right !important;
-        }
-        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div, .stDataFrame {
             direction: rtl !important;
         }
+        /* Fix data tables direction */
+        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
+            direction: rtl !important;
+        }
+        /* Center buttons properly */
         .stButton>button { text-align: center !important; }
-        section[data-testid="stSidebar"] { direction: rtl !important; }
-        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
+        
+        /* Hide password eye icon */
+        div[data-testid="stTextInput"] button { display: none !important; }
         </style>
         """,
         unsafe_allow_html=True
@@ -512,6 +520,7 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
@@ -530,6 +539,7 @@ elif st.session_state.current_page == "Maintenance":
     )
     
     if not edited_maint.equals(maint_display):
+        # Auto-catch table manual approvals by the Admin
         for idx in edited_maint.index:
             is_cleared = edited_maint.at[idx, 'Safety_Cleared'] == True
             is_pending = edited_maint.at[idx, 'Pending_Approval'] == True
@@ -539,6 +549,7 @@ elif st.session_state.current_page == "Maintenance":
                 edited_maint.at[idx, 'Pending_Approval'] = False
                 
         save_df = edited_maint.drop(columns=['Next_Due'])
+        # Convert date objects back to strings safely for CSV storage
         save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
         save_data(save_df, "maintenance.csv")
         st.rerun()
