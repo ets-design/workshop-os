@@ -75,8 +75,8 @@ t = {
         "btn_submit": "Save to Database"
     },
     "he": {
-        "title": "🪚 נגריית הגראז׳ | מערכת ניהול סדנא",
-        "nav_home": "🏠 חפ״ק סדנא (מסך הבית)",
+        "title": "🪚 נגריית הגראז׳ | מערכת ניהול המרחב",
+        "nav_home": "🏠 חפ״ק המרחב",
         "nav_equip": "🗜️ מצבת ציוד ומכונות",
         "nav_jigs": "📐 עזרים, ג'יגים ותצורות",
         "nav_cons": "📦 חומרים מתכלים ומלאי",
@@ -156,6 +156,11 @@ def save_data(df, file): df.to_csv(file, index=False)
 eq_df = load_data("equipment.csv")
 eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
+
+# DYNAMIC DROPDOWN GENERATION: Get unique machine IDs for other tabs
+machine_ids = eq_df['ID'].dropna().unique().tolist()
+if not machine_ids:
+    machine_ids = ["NO_MACHINES_FOUND"]
 
 cons_df = load_data("consumables.csv")
 maint_df = load_data("maintenance.csv")
@@ -289,7 +294,7 @@ elif st.session_state.current_page == "Jigs":
     with st.expander(t[lang]["add_new_jig"]):
         with st.form("form_jig", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
-            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_jig_en = f_c2.text_input("Jig Name (English)")
             n_jig_he = f_c3.text_input("שם עזר/ג'יג (עברית)")
             
@@ -315,7 +320,7 @@ elif st.session_state.current_page == "Jigs":
     edited_jigs = st.data_editor(
         jigs_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
-            "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
+            "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Jig_Name_EN": st.column_config.TextColumn("Jig Name"),
             "Jig_Name_HE": st.column_config.TextColumn("שם עזר/ג'יג"),
             "Mode_Config_EN": st.column_config.TextColumn("Configuration"),
@@ -336,7 +341,7 @@ elif st.session_state.current_page == "Consumables":
     with st.expander(t[lang]["add_new_cons"]):
         with st.form("form_cons", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
-            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_item_en = f_c2.text_input("Item Name (English)")
             n_item_he = f_c3.text_input("שם פריט (עברית)")
             
@@ -360,7 +365,7 @@ elif st.session_state.current_page == "Consumables":
     edited_cons = st.data_editor(
         cons_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
-            "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
+            "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
             "Item_HE": st.column_config.TextColumn("שם פריט"),
             "Stock": st.column_config.NumberColumn(t[lang]["col_stock"]),
@@ -381,7 +386,7 @@ elif st.session_state.current_page == "Maintenance":
     with st.expander(t[lang]["add_new_maint"]):
         with st.form("form_maint", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
-            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_task_en = f_c2.text_input("Task Description (English)")
             n_task_he = f_c3.text_input("תיאור טיפול (עברית)")
             
@@ -406,7 +411,7 @@ elif st.session_state.current_page == "Maintenance":
     edited_maint = st.data_editor(
         maint_display, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
-            "Machine_ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
+            "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
             "Task_HE": st.column_config.TextColumn("תיאור טיפול/בדיקה"),
             "Freq_Days": st.column_config.NumberColumn(t[lang]["col_freq"]),
