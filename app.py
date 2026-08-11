@@ -68,6 +68,11 @@ t = {
         "col_ppu": "Price/Unit (ILS)",
         "col_freq": "Frequency (Days)",
         "col_last_serv": "Last Serviced",
+        "add_new_equip": "➕ Add New Machine",
+        "add_new_jig": "➕ Add New Jig or Setup",
+        "add_new_cons": "➕ Add New Consumable",
+        "add_new_maint": "➕ Add Maintenance Task",
+        "btn_submit": "Save to Database"
     },
     "he": {
         "title": "🪚 נגריית הגראז׳ | מערכת ניהול סדנא",
@@ -91,6 +96,11 @@ t = {
         "col_ppu": "מחיר יחידה (₪)",
         "col_freq": "תדירות טיפול (בימים)",
         "col_last_serv": "תאריך טיפול אחרון",
+        "add_new_equip": "➕ הוספת מכונה חדשה",
+        "add_new_jig": "➕ הוספת עזר/ג'יג חדש",
+        "add_new_cons": "➕ הוספת פריט מלאי חדש",
+        "add_new_maint": "➕ הוספת משימת תחזוקה",
+        "btn_submit": "שמירה למאגר הנתונים"
     }
 }
 
@@ -150,7 +160,7 @@ eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 cons_df = load_data("consumables.csv")
 maint_df = load_data("maintenance.csv")
 
-# AUTO-HEAL JIGS FILE (Restores lost data if old CSV format is detected)
+# AUTO-HEAL JIGS FILE
 try:
     jigs_df = load_data("jigs.csv")
     if 'Jig_Name_HE' not in jigs_df.columns:
@@ -187,7 +197,6 @@ if st.session_state.current_page == "Homepage":
             st.success(f"✅ {t[lang]['all_good_stock']}")
         else:
             for _, row in low_stock.iterrows():
-                # Replaced slash with native language separation to prevent RTL number flipping
                 if lang == "he":
                     st.error(f"📦 **{row[f'Item{L}']}** | {t[lang]['col_stock']}: **{row['Stock']}** מתוך **{row['Threshold']}**")
                 else:
@@ -226,6 +235,29 @@ if st.session_state.current_page == "Homepage":
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
+    # Add Item Form
+    with st.expander(t[lang]["add_new_equip"]):
+        with st.form("form_equip", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_id = f_c1.text_input(t[lang]["col_mach_id"])
+            n_cat = f_c2.text_input(t[lang]["col_cat"])
+            n_name = f_c3.text_input(t[lang]["col_name"])
+            
+            f_c4, f_c5 = st.columns(2)
+            n_role_en = f_c4.text_input("Role (English)")
+            n_role_he = f_c5.text_input("ייעוד (עברית)")
+            
+            f_c6, f_c7, f_c8 = st.columns(3)
+            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+            n_prod = f_c7.text_input("Product URL / קישור למוצר")
+            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0}])
+                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                save_data(eq_df, "equipment.csv")
+                st.rerun()
+
     if lang == "he":
         cols = ["Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"]
     else:
@@ -253,6 +285,28 @@ elif st.session_state.current_page == "Equipment":
 elif st.session_state.current_page == "Jigs":
     st.header(t[lang]["nav_jigs"])
     
+    # Add Item Form
+    with st.expander(t[lang]["add_new_jig"]):
+        with st.form("form_jig", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_jig_en = f_c2.text_input("Jig Name (English)")
+            n_jig_he = f_c3.text_input("שם עזר/ג'יג (עברית)")
+            
+            f_c4, f_c5 = st.columns(2)
+            n_mod_en = f_c4.text_input("Configuration (English)")
+            n_mod_he = f_c5.text_input("תצורה או כיוון (עברית)")
+            
+            f_c6, f_c7 = st.columns(2)
+            n_stor_en = f_c6.text_input("Storage Location (English)")
+            n_stor_he = f_c7.text_input("מקום אחסון (עברית)")
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Jig_Name_EN": n_jig_en, "Jig_Name_HE": n_jig_he, "Mode_Config_EN": n_mod_en, "Mode_Config_HE": n_mod_he, "Storage_EN": n_stor_en, "Storage_HE": n_stor_he}])
+                jigs_df = pd.concat([jigs_df, new_row], ignore_index=True)
+                save_data(jigs_df, "jigs.csv")
+                st.rerun()
+                
     if lang == "he":
         cols = ["Storage_HE", "Mode_Config_HE", "Jig_Name_HE", "Machine_ID"]
     else:
@@ -278,6 +332,26 @@ elif st.session_state.current_page == "Jigs":
 elif st.session_state.current_page == "Consumables":
     st.header(t[lang]["nav_cons"])
     
+    # Add Item Form
+    with st.expander(t[lang]["add_new_cons"]):
+        with st.form("form_cons", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_item_en = f_c2.text_input("Item Name (English)")
+            n_item_he = f_c3.text_input("שם פריט (עברית)")
+            
+            f_c4, f_c5, f_c6, f_c7 = st.columns(4)
+            n_stock = f_c4.number_input(t[lang]["col_stock"], min_value=0, value=1)
+            n_thresh = f_c5.number_input(t[lang]["col_thresh"], min_value=0, value=1)
+            n_ppu = f_c6.number_input(t[lang]["col_ppu"], min_value=0.0, value=0.0)
+            n_grade = f_c7.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Item_EN": n_item_en, "Item_HE": n_item_he, "Stock": n_stock, "Threshold": n_thresh, "PPU": n_ppu, "Grade": n_grade}])
+                cons_df = pd.concat([cons_df, new_row], ignore_index=True)
+                save_data(cons_df, "consumables.csv")
+                st.rerun()
+                
     if lang == "he":
         cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"]
     else:
@@ -303,6 +377,24 @@ elif st.session_state.current_page == "Consumables":
 elif st.session_state.current_page == "Maintenance":
     st.header(t[lang]["nav_maint"])
     
+    # Add Item Form
+    with st.expander(t[lang]["add_new_maint"]):
+        with st.form("form_maint", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_mid = f_c1.text_input(t[lang]["col_mach_id"])
+            n_task_en = f_c2.text_input("Task Description (English)")
+            n_task_he = f_c3.text_input("תיאור טיפול (עברית)")
+            
+            f_c4, f_c5 = st.columns(2)
+            n_freq = f_c4.number_input(t[lang]["col_freq"], min_value=1, value=30)
+            n_date = f_c5.date_input(t[lang]["col_last_serv"])
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d')}])
+                maint_df = pd.concat([maint_df, new_row], ignore_index=True)
+                save_data(maint_df, "maintenance.csv")
+                st.rerun()
+                
     maint_display = maint_df.copy()
     maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.date
     
