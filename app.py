@@ -32,6 +32,18 @@ if lang == "he":
         }
         .stButton>button { text-align: center !important; }
         section[data-testid="stSidebar"] { direction: rtl !important; }
+        /* Hide password reveal eye icon */
+        div[data-testid="stTextInput"] button { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        """
+        <style>
+        /* Hide password reveal eye icon in English mode too */
+        div[data-testid="stTextInput"] button { display: none !important; }
         </style>
         """,
         unsafe_allow_html=True
@@ -46,7 +58,7 @@ t = {
         "nav_cons": "📦 Consumables",
         "nav_maint": "🔧 Maintenance",
         "dash_low_stock": "⚠️ Low Stock Alerts",
-        "dash_maint": "⏰ Overdue Maintenance",
+        "dash_maint": "⏰ Maintenance Tracker",
         "all_good_stock": "Stock levels are good.",
         "all_good_maint": "All machinery is up to date.",
         "btn_fix_stock": "Update Stock ➔",
@@ -60,6 +72,8 @@ t = {
         "col_ppu": "Price/Unit (ILS)",
         "col_freq": "Frequency (Days)",
         "col_last_serv": "Last Serviced",
+        "col_next_serv": "Next Service",
+        "col_resp": "Responsible",
         "add_new_equip": "➕ Add New Machine",
         "add_new_jig": "➕ Add New Jig/Config",
         "add_new_cons": "➕ Add New Consumable",
@@ -69,6 +83,10 @@ t = {
         "safety_cleared": "Safety Cleared (Admin)",
         "is_private": "Private Collection Tool",
         "err_safety": "⚠️ Cannot complete: Pending Admin Safety Clearance!",
+        "err_early": "⚠️ Cannot complete before the scheduled next service date.",
+        "due_today": "Due Today",
+        "days_left": "Days Left",
+        "overdue": "OVERDUE",
         "admin_mode": "🛡️ Admin Mode",
         "user_mode": "👤 User Mode",
         "admin_pin": "Admin Access PIN"
@@ -81,7 +99,7 @@ t = {
         "nav_cons": "📦 מלאי מתכלים",
         "nav_maint": "🔧 טיפולים ותחזוקה",
         "dash_low_stock": "⚠️ התראות חוסר במלאי",
-        "dash_maint": "⏰ טיפולי תחזוקה בפיגור",
+        "dash_maint": "⏰ מעקב טיפולים",
         "all_good_stock": "הכל מתקתק. אין חוסרים במלאי.",
         "all_good_maint": "כל המכונות מתוחזקות ומוכנות לעבודה.",
         "btn_fix_stock": "לעדכון המלאי ➔",
@@ -95,6 +113,8 @@ t = {
         "col_ppu": "מחיר יחידה (₪)",
         "col_freq": "תדירות טיפול (בימים)",
         "col_last_serv": "תאריך טיפול אחרון",
+        "col_next_serv": "תאריך לטיפול הבא",
+        "col_resp": "אחראי",
         "add_new_equip": "➕ הוספת מכונה חדשה",
         "add_new_jig": "➕ הוספת ג'יג/תצורה",
         "add_new_cons": "➕ הוספת פריט מלאי חדש",
@@ -104,6 +124,10 @@ t = {
         "safety_cleared": "אושר בטיחותית (מנהל)",
         "is_private": "כלי אוסף פרטי",
         "err_safety": "⚠️ לא ניתן להשלים: ממתין לאישור בטיחות של מנהל!",
+        "err_early": "⚠️ לא ניתן לסמן כבוצע לפני תאריך היעד שנקבע.",
+        "due_today": "לביצוע היום",
+        "days_left": "ימים נותרו",
+        "overdue": "בפיגור",
         "admin_mode": "🛡️ מצב מנהל",
         "user_mode": "👤 מצב משתמש",
         "admin_pin": "קוד גישת מנהל"
@@ -141,7 +165,7 @@ if not os.path.exists("consumables.csv"):
 if not os.path.exists("jigs.csv"):
     pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []}).to_csv("jigs.csv", index=False)
 if not os.path.exists("maintenance.csv"):
-    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": []}).to_csv("maintenance.csv", index=False)
+    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": []}).to_csv("maintenance.csv", index=False)
 
 # Auto-Heal Columns
 eq_df = load_data("equipment.csv")
@@ -152,13 +176,24 @@ eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 
 maint_df = load_data("maintenance.csv")
+m_needs_save = False
 if 'Req_Safety' not in maint_df.columns:
     maint_df['Req_Safety'] = False
     maint_df['Safety_Cleared'] = False
+    m_needs_save = True
+if 'Responsible' not in maint_df.columns:
+    maint_df['Responsible'] = ""
+    m_needs_save = True
+if m_needs_save:
     save_data(maint_df, "maintenance.csv")
 
 cons_df = load_data("consumables.csv")
-jigs_df = load_data("jigs.csv")
+try:
+    jigs_df = load_data("jigs.csv")
+    if 'Name_HE' not in jigs_df.columns: raise ValueError()
+except (FileNotFoundError, ValueError):
+    jigs_df = pd.DataFrame({"Machine_ID": ["MAC-01", "MAC-01", "MAC-02"], "Name_EN": ["Crosscut Sled", "Tenoning Jig", "Variable Angle Taper"], "Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "חיתוך זווית משתנה"], "Purpose_EN": ["Crosscutting 90 deg", "Cutting tenons vertically", "Tapered cuts"], "Purpose_HE": ["חיתוך 90 מעלות", "חיתוך סין בצורה אנכית", "חיתוך בזווית משתנה"], "Notes_EN": ["Keep waxed", "Clamp tightly", ""], "Notes_HE": ["לשמן שעווה", "להדק היטב", ""], "Storage_EN": ["Wall Rack A", "Shelf 2", "Under MLT100"], "Storage_HE": ["קיר תלייה א'", "מדף 2", "מתחת למקיטה"]})
+    save_data(jigs_df, "jigs.csv")
 
 machine_ids = eq_df['ID'].dropna().unique().tolist()
 if not machine_ids: machine_ids = ["NO_MACHINES"]
@@ -190,75 +225,100 @@ if st.session_state.current_page == "Homepage":
                 navigate_to("Consumables")
                 st.rerun()
 
-    # Overdue Maintenance Block
+    # Maintenance Block (Overdue & Upcoming)
     with col2:
         st.subheader(t[lang]["dash_maint"])
-        maint_df['Last_Serviced'] = pd.to_datetime(maint_df['Last_Serviced'], errors='coerce')
-        maint_df['Next_Due'] = maint_df['Last_Serviced'] + pd.to_timedelta(maint_df['Freq_Days'], unit='D')
-        today = pd.to_datetime(datetime.today().date())
-        overdue = maint_df[maint_df['Next_Due'] < today]
+        maint_df['Last_Serviced_DT'] = pd.to_datetime(maint_df['Last_Serviced'], errors='coerce')
+        maint_df['Next_Due_DT'] = maint_df['Last_Serviced_DT'] + pd.to_timedelta(maint_df['Freq_Days'], unit='D')
+        today_dt = pd.to_datetime(datetime.today().date())
+        maint_df['Days_Until'] = (maint_df['Next_Due_DT'] - today_dt).dt.days
+
+        overdue = maint_df[maint_df['Days_Until'] < 0]
         
-        if overdue.empty:
+        upcoming_long = maint_df[(maint_df['Freq_Days'] > 7) & (maint_df['Days_Until'] >= 0) & (maint_df['Days_Until'] <= 3)]
+        upcoming_short = maint_df[(maint_df['Freq_Days'] <= 7) & (maint_df['Days_Until'] >= 0) & (maint_df['Days_Until'] <= 1)]
+        upcoming = pd.concat([upcoming_long, upcoming_short])
+        
+        if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
+            # Overdue loop
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
                     if row['Req_Safety'] and not row['Safety_Cleared']:
-                        st.error(f"⚠️ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['req_safety']}")
+                        st.error(f"🚨 **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['req_safety']}")
                     else:
-                        st.warning(f"🔧 **{row[f'Task{L}']}** ({row['Machine_ID']})")
+                        st.error(f"🚨 **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['overdue']}")
                         
                 with c_btn:
-                    if st.button(t[lang]["btn_mark_done"], key=f"done_{idx}"):
+                    if st.button(t[lang]["btn_mark_done"], key=f"done_ovr_{idx}"):
                         if row['Req_Safety'] and not row['Safety_Cleared']:
                             st.error(t[lang]["err_safety"])
                         else:
                             maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                            maint_df.at[idx, 'Safety_Cleared'] = False # Reset for next time
-                            save_data(maint_df.drop(columns=['Next_Due']), "maintenance.csv")
+                            maint_df.at[idx, 'Safety_Cleared'] = False
+                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until']), "maintenance.csv")
+                            st.rerun()
+
+            # Upcoming loop
+            for idx, row in upcoming.iterrows():
+                c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
+                with c_text:
+                    if row['Days_Until'] == 0:
+                        due_text = t[lang]["due_today"]
+                    else:
+                        due_text = f"{row['Days_Until']} {t[lang]['days_left']}"
+                    
+                    if row['Req_Safety'] and not row['Safety_Cleared']:
+                        st.warning(f"⏳ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {due_text} ({t[lang]['req_safety']})")
+                    else:
+                        st.warning(f"⏳ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {due_text}")
+                        
+                with c_btn:
+                    if st.button(t[lang]["btn_mark_done"], key=f"done_upc_{idx}"):
+                        if row['Days_Until'] > 0:
+                            st.error(t[lang]["err_early"])
+                        elif row['Req_Safety'] and not row['Safety_Cleared']:
+                            st.error(t[lang]["err_safety"])
+                        else:
+                            maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                            maint_df.at[idx, 'Safety_Cleared'] = False
+                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until']), "maintenance.csv")
                             st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    with st.expander(t[lang]["add_new_equip"]):
-        with st.form("form_equip", clear_on_submit=True):
-            f_c1, f_c2, f_c3 = st.columns(3)
-            n_id = f_c1.text_input(t[lang]["col_mach_id"])
-            n_cat = f_c2.text_input(t[lang]["col_cat"])
-            n_name = f_c3.text_input(t[lang]["col_name"])
-            
-            f_c4, f_c5 = st.columns(2)
-            n_role_en = f_c4.text_input("Role (English)")
-            n_role_he = f_c5.text_input("ייעוד (עברית)")
-            
-            f_c6, f_c7, f_c8 = st.columns(3)
-            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
-            n_prod = f_c7.text_input("Product URL / קישור למוצר")
-            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
-            
-            # Show Private Checkbox only if Admin
-            if is_admin:
+    if is_admin:
+        with st.expander(t[lang]["add_new_equip"]):
+            with st.form("form_equip", clear_on_submit=True):
+                f_c1, f_c2, f_c3 = st.columns(3)
+                n_id = f_c1.text_input(t[lang]["col_mach_id"])
+                n_cat = f_c2.text_input(t[lang]["col_cat"])
+                n_name = f_c3.text_input(t[lang]["col_name"])
+                
+                f_c4, f_c5 = st.columns(2)
+                n_role_en = f_c4.text_input("Role (English)")
+                n_role_he = f_c5.text_input("ייעוד (עברית)")
+                
+                f_c6, f_c7, f_c8 = st.columns(3)
+                n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+                n_prod = f_c7.text_input("Product URL / קישור למוצר")
+                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+                
                 n_private = st.checkbox(t[lang]["is_private"])
-            else:
-                n_private = False
-            
-            if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
-                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                save_data(eq_df, "equipment.csv")
-                st.rerun()
+                
+                if st.form_submit_button(t[lang]["btn_submit"]):
+                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                    eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                    save_data(eq_df, "equipment.csv")
+                    st.rerun()
 
-    # Filter out private tools for standard users
     eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
-    
     cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
-    
-    # Remove Is_Private column for non-admins
-    if not is_admin:
-        cols.remove("Is_Private")
+    if not is_admin: cols.remove("Is_Private")
     
     edited_eq = st.data_editor(
         eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True,
@@ -276,10 +336,8 @@ elif st.session_state.current_page == "Equipment":
         }
     )
     if not edited_eq.equals(eq_df_view):
-        if is_admin: 
-            save_data(edited_eq, "equipment.csv")
+        if is_admin: save_data(edited_eq, "equipment.csv")
         else: 
-            # Safely merge updates for non-admins without touching the hidden private items
             eq_df.update(edited_eq)
             save_data(eq_df, "equipment.csv")
         st.rerun()
@@ -383,24 +441,27 @@ elif st.session_state.current_page == "Maintenance":
             n_task_en = f_c2.text_input("Task Description (English)")
             n_task_he = f_c3.text_input("תיאור טיפול (עברית)")
             
-            f_c4, f_c5 = st.columns(2)
+            f_c4, f_c5, f_c6 = st.columns(3)
             n_freq = f_c4.number_input(t[lang]["col_freq"], min_value=1, value=30)
             n_date = f_c5.date_input(t[lang]["col_last_serv"])
+            n_resp = f_c6.text_input(t[lang]["col_resp"])
             
             n_req_safety = st.checkbox(t[lang]["req_safety"])
             
             if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False}])
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False, "Responsible": n_resp}])
                 maint_df = pd.concat([maint_df, new_row], ignore_index=True)
                 save_data(maint_df, "maintenance.csv")
                 st.rerun()
                 
     maint_display = maint_df.copy()
-    maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.date
+    maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce')
+    maint_display['Next_Due'] = (maint_display['Last_Serviced'] + pd.to_timedelta(maint_display['Freq_Days'], unit='D')).dt.date
+    maint_display['Last_Serviced'] = maint_display['Last_Serviced'].dt.date
     
-    cols = ["Safety_Cleared", "Req_Safety", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Req_Safety", "Safety_Cleared"]
+    cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    disabled_cols = [] if is_admin else ["Safety_Cleared", "Req_Safety"]
+    disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety"]
 
     edited_maint = st.data_editor(
         maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols,
@@ -410,11 +471,13 @@ elif st.session_state.current_page == "Maintenance":
             "Task_HE": st.column_config.TextColumn("תיאור טיפול/בדיקה"),
             "Freq_Days": st.column_config.NumberColumn(t[lang]["col_freq"]),
             "Last_Serviced": st.column_config.DateColumn(t[lang]["col_last_serv"], format="YYYY-MM-DD"),
+            "Next_Due": st.column_config.DateColumn(t[lang]["col_next_serv"], format="YYYY-MM-DD"),
+            "Responsible": st.column_config.TextColumn(t[lang]["col_resp"]),
             "Req_Safety": st.column_config.CheckboxColumn(t[lang]["req_safety"]),
             "Safety_Cleared": st.column_config.CheckboxColumn(t[lang]["safety_cleared"])
         }
     )
     if not edited_maint.equals(maint_display):
         edited_maint['Last_Serviced'] = pd.to_datetime(edited_maint['Last_Serviced']).dt.strftime('%Y-%m-%d')
-        save_data(edited_maint, "maintenance.csv")
+        save_data(edited_maint.drop(columns=['Next_Due']), "maintenance.csv")
         st.rerun()
