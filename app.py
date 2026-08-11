@@ -23,24 +23,39 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Safe RTL layout that preserves Streamlit's mobile responsive grid */
-        .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
-            direction: rtl;
-        }
-        /* Ensure text and inputs align right */
-        p, h1, h2, h3, h4, h5, h6, span, label, input, select, textarea {
-            text-align: right !important;
+        /* Hide password eye globally */
+        div[data-testid="stTextInput"] button { display: none !important; }
+
+        /* Force RTL inside content containers on ALL devices */
+        .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
-        /* Fix data tables direction */
+
+        /* Ensure right alignment for typography and inputs */
+        .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
+            text-align: right !important;
+        }
+        input, select, textarea {
+            text-align: right !important;
+        }
+
+        /* Fix DataFrames direction */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
-        /* Center buttons properly */
-        .stButton>button { text-align: center !important; }
-        
-        /* Hide password eye icon */
-        div[data-testid="stTextInput"] button { display: none !important; }
+
+        /* Center button text */
+        .stButton>button {
+            text-align: center !important;
+        }
+
+        /* DESKTOP ONLY: Move sidebar to the right. 
+           We leave mobile alone so the hamburger menu and slide-out mechanics don't break. */
+        @media screen and (min-width: 768px) {
+            .stApp, [data-testid="stHeader"] {
+                direction: rtl !important;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True
