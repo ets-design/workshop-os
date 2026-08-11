@@ -63,7 +63,7 @@ t = {
         "btn_mark_done": "Mark Done ✓",
         "btn_approve": "Approve ✓",
         "btn_wait": "Waiting...",
-        "col_mach_id": "Machine ID",
+        "col_mach_id": "Tool ID",
         "col_cat": "Category",
         "col_name": "Name & Model",
         "col_grade": "Grade",
@@ -74,7 +74,7 @@ t = {
         "col_last_serv": "Last Serviced",
         "col_next_serv": "Next Service",
         "col_resp": "Responsible",
-        "add_new_equip": "➕ Add New Machine",
+        "add_new_equip": "➕ Add New Tool",
         "add_new_jig": "➕ Add New Jig/Config",
         "add_new_cons": "➕ Add New Consumable",
         "add_new_maint": "➕ Add Maintenance Task",
@@ -107,7 +107,7 @@ t = {
         "btn_mark_done": "סומן כבוצע ✓",
         "btn_approve": "אישור מנהל ✓",
         "btn_wait": "ממתין...",
-        "col_mach_id": "קוד מכונה",
+        "col_mach_id": "קוד כלי",
         "col_cat": "קטגוריה",
         "col_name": "שם/דגם",
         "col_grade": "דירוג איכות",
@@ -118,7 +118,7 @@ t = {
         "col_last_serv": "תאריך טיפול אחרון",
         "col_next_serv": "תאריך לטיפול הבא",
         "col_resp": "אחראי",
-        "add_new_equip": "➕ הוספת מכונה חדשה",
+        "add_new_equip": "➕ הוספת כלי חדש",
         "add_new_jig": "➕ הוספת ג'יג/תצורה",
         "add_new_cons": "➕ הוספת פריט מלאי חדש",
         "add_new_maint": "➕ הוספת משימת תחזוקה",
@@ -196,7 +196,7 @@ except (FileNotFoundError, ValueError):
 for col in ["Machine_ID", "Name_EN", "Name_HE", "Purpose_EN", "Purpose_HE", "Notes_EN", "Notes_HE", "Storage_EN", "Storage_HE"]:
     jigs_df[col] = jigs_df.get(col, "").fillna("").astype(str)
 
-# Safe Load & Strict Typing: Maintenance (Prevents PyArrow Crashes)
+# Safe Load & Strict Typing: Maintenance
 maint_df = load_data("maintenance.csv")
 for col in ["Machine_ID", "Task_EN", "Task_HE", "Responsible"]:
     maint_df[col] = maint_df.get(col, "").fillna("").astype(str)
@@ -330,37 +330,38 @@ if st.session_state.current_page == "Homepage":
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    if is_admin:
-        with st.expander(t[lang]["add_new_equip"]):
-            with st.form("form_equip", clear_on_submit=True):
-                f_c1, f_c2, f_c3 = st.columns(3)
-                n_id = f_c1.text_input(t[lang]["col_mach_id"])
-                n_cat = f_c2.text_input(t[lang]["col_cat"])
-                n_name = f_c3.text_input(t[lang]["col_name"])
-                
-                f_c4, f_c5 = st.columns(2)
-                n_role_en = f_c4.text_input("Role (English)")
-                n_role_he = f_c5.text_input("ייעוד (עברית)")
-                
-                f_c6, f_c7, f_c8 = st.columns(3)
-                n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
-                n_prod = f_c7.text_input("Product URL / קישור למוצר")
-                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
-                
-                n_private = st.checkbox(t[lang]["is_private"])
-                
-                if st.form_submit_button(t[lang]["btn_submit"]):
-                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
-                    eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                    save_data(eq_df, "equipment.csv")
-                    st.rerun()
+    with st.expander(t[lang]["add_new_equip"]):
+        with st.form("form_equip", clear_on_submit=True):
+            f_c1, f_c2, f_c3 = st.columns(3)
+            n_id = f_c1.text_input(t[lang]["col_mach_id"])
+            n_cat = f_c2.text_input(t[lang]["col_cat"])
+            n_name = f_c3.text_input(t[lang]["col_name"])
+            
+            f_c4, f_c5 = st.columns(2)
+            n_role_en = f_c4.text_input("Role (English)")
+            n_role_he = f_c5.text_input("ייעוד (עברית)")
+            
+            f_c6, f_c7, f_c8 = st.columns(3)
+            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+            n_prod = f_c7.text_input("Product URL / קישור למוצר")
+            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+            
+            n_private = st.checkbox(t[lang]["is_private"]) if is_admin else False
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                save_data(eq_df, "equipment.csv")
+                st.rerun()
 
     eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
     cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
     if not is_admin: cols.remove("Is_Private")
     
+    disabled_cols_eq = [] if is_admin else cols
+    
     edited_eq = st.data_editor(
-        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -411,8 +412,10 @@ elif st.session_state.current_page == "Jigs":
                 st.rerun()
                 
     cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
+    disabled_cols_jigs = [] if is_admin else cols
+    
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -453,8 +456,10 @@ elif st.session_state.current_page == "Consumables":
                 st.rerun()
                 
     cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
+    disabled_cols_cons = [] if is_admin else [c for c in cols if c != "Stock"]
+    
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -495,7 +500,6 @@ elif st.session_state.current_page == "Maintenance":
                 
     maint_display = maint_df.copy()
     
-    # Safe date conversion to guarantee proper DateColumn mapping
     def parse_date(val):
         try:
             if pd.isna(val) or str(val).strip() == "": return None
@@ -508,7 +512,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
@@ -527,7 +530,6 @@ elif st.session_state.current_page == "Maintenance":
     )
     
     if not edited_maint.equals(maint_display):
-        # Auto-catch table manual approvals by the Admin
         for idx in edited_maint.index:
             is_cleared = edited_maint.at[idx, 'Safety_Cleared'] == True
             is_pending = edited_maint.at[idx, 'Pending_Approval'] == True
@@ -537,7 +539,6 @@ elif st.session_state.current_page == "Maintenance":
                 edited_maint.at[idx, 'Pending_Approval'] = False
                 
         save_df = edited_maint.drop(columns=['Next_Due'])
-        # Convert date objects back to strings safely for CSV storage
         save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
         save_data(save_df, "maintenance.csv")
         st.rerun()
