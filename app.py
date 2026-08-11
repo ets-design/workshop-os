@@ -18,63 +18,103 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- PRO-CRM AESTHETIC & RTL INJECTION ---
+# --- PRO-CRM AESTHETIC CSS INJECTION ---
 css_base = """
 <style>
-/* Import premium web font fallback for bilingual support */
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap');
-
-/* Global Typography: Prioritize Calibri, fallback to modern Heebo */
-html, body, [class*="css"] {
+/* 1. FORCE FONTS GLOBALLY (Overrides Streamlit's deep internal classes) */
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+* {
     font-family: 'Calibri', 'Heebo', sans-serif !important;
 }
 
-/* Hide Streamlit Branding for standalone software feel */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-
-/* CRM Card Styling for Alerts */
-.stAlert {
-    border-radius: 10px !important;
-    border: none !important;
-    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.1) !important;
-    margin-bottom: 0.85rem !important;
-    padding: 1rem !important;
+/* 2. CRM BACKGROUND & CLEANUP */
+.stApp {
+    background-color: #F8FAFC !important; /* Soft slate gray background */
+}
+header, [data-testid="stHeader"], footer, #MainMenu {
+    display: none !important; /* Hide Streamlit branding and top padding */
 }
 
-/* Elegant Expanders (Add Item Forms) */
-[data-testid="stExpander"] {
-    border-radius: 10px !important;
-    box-shadow: 0 2px 8px -1px rgba(0,0,0,0.08) !important;
-    border: 1px solid rgba(0,0,0,0.05) !important;
-}
-
-/* Tactile Button Animations */
-.stButton>button {
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease-in-out !important;
-}
-.stButton>button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
-}
-
-/* Refined Typography */
+/* 3. HEADINGS */
 h1, h2, h3 {
+    color: #0F172A !important;
     font-weight: 600 !important;
     letter-spacing: -0.01em !important;
 }
 
-/* Hide password eye globally */
-div[data-testid="stTextInput"] button { display: none !important; }
+/* 4. SIDEBAR MENU STYLING (Looks like a real navigation menu) */
+[data-testid="stSidebar"] {
+    background-color: #FFFFFF !important;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
+    border: none !important;
+}
+[data-testid="stSidebar"] div.stButton > button {
+    background-color: transparent !important;
+    color: #475569 !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+}
+[data-testid="stSidebar"] div.stButton > button:hover {
+    background-color: #F1F5F9 !important;
+    color: #0F172A !important;
+}
+
+/* 5. MAIN ACTION BUTTONS (Save, Done, Approve) */
+div.stButton > button {
+    background-color: #2563EB !important;
+    color: #FFFFFF !important;
+    border-radius: 8px !important;
+    border: none !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+div.stButton > button:hover {
+    background-color: #1D4ED8 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* 6. CARDS (Data Tables & Forms) */
+[data-testid="stDataFrame"] > div {
+    background-color: #FFFFFF !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05) !important;
+    border: 1px solid #E2E8F0 !important;
+    padding: 0.5rem !important;
+}
+[data-testid="stExpander"] {
+    background-color: #FFFFFF !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05) !important;
+    border: 1px solid #E2E8F0 !important;
+    margin-bottom: 1.5rem !important;
+}
+
+/* 7. ALERTS */
+[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+}
+
+/* 8. INPUTS */
+input, select, textarea {
+    border-radius: 8px !important;
+    border: 1px solid #CBD5E1 !important;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02) !important;
+}
+div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
 </style>
 """
 
 css_rtl = """
 <style>
-/* Responsive RTL Architecture */
+/* RTL SPECIFIC ALIGNMENT */
 .block-container, [data-testid="stSidebarUserContent"] {
     direction: rtl !important;
 }
@@ -87,13 +127,24 @@ input, select, textarea {
 [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
     direction: rtl !important;
 }
-.stButton>button {
-    text-align: center !important;
+[data-testid="stSidebar"] div.stButton > button p {
+    text-align: right !important;
+    width: 100% !important;
 }
 @media screen and (min-width: 768px) {
-    .stApp, [data-testid="stHeader"] {
+    .stApp {
         direction: rtl !important;
     }
+}
+</style>
+"""
+
+css_ltr = """
+<style>
+/* LTR SPECIFIC ALIGNMENT */
+[data-testid="stSidebar"] div.stButton > button p {
+    text-align: left !important;
+    width: 100% !important;
 }
 </style>
 """
@@ -101,6 +152,9 @@ input, select, textarea {
 st.markdown(css_base, unsafe_allow_html=True)
 if lang == "he":
     st.markdown(css_rtl, unsafe_allow_html=True)
+else:
+    st.markdown(css_ltr, unsafe_allow_html=True)
+
 
 t = {
     "en": {
@@ -194,7 +248,6 @@ t = {
 }
 
 # --- NAVIGATION MENUS ---
-st.sidebar.markdown("---")
 if st.sidebar.button(t[lang]["nav_home"], use_container_width=True): navigate_to("Homepage")
 if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_to("Equipment")
 if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to("Jigs")
@@ -202,6 +255,7 @@ if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
 # --- ADMIN AUTHENTICATION ---
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True) # Push to bottom
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
 is_admin = (admin_pin == "2004")
@@ -268,7 +322,6 @@ row_control = "dynamic" if is_admin else "fixed"
 # --- PAGE: HOMEPAGE (DASHBOARD) ---
 if st.session_state.current_page == "Homepage":
     st.header(t[lang]["nav_home"])
-    st.markdown("---")
     
     col1, col2 = st.columns(2) if lang == "en" else reversed(st.columns(2))
     
