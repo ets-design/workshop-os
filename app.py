@@ -50,7 +50,7 @@ t = {
         "title": "🪚 Garage Workshop | Workshop OS",
         "nav_home": "🏠 Homepage",
         "nav_equip": "🗜️ Equipment Master",
-        "nav_jigs": "📐 Jigs & Modes",
+        "nav_jigs": "📐 Jigs & Configs",
         "nav_cons": "📦 Consumables",
         "nav_maint": "🔧 Maintenance",
         "dash_low_stock": "⚠️ Low Stock Alerts",
@@ -69,7 +69,7 @@ t = {
         "col_freq": "Frequency (Days)",
         "col_last_serv": "Last Serviced",
         "add_new_equip": "➕ Add New Machine",
-        "add_new_jig": "➕ Add New Jig or Setup",
+        "add_new_jig": "➕ Add New Jig/Config",
         "add_new_cons": "➕ Add New Consumable",
         "add_new_maint": "➕ Add Maintenance Task",
         "btn_submit": "Save to Database"
@@ -79,8 +79,8 @@ t = {
         "nav_home": "🏠 חפ״ק המרחב",
         "nav_equip": "🗜️ מצבת ציוד ומכונות",
         "nav_jigs": "📐 עזרים, ג'יגים ותצורות",
-        "nav_cons": "📦 חומרים מתכלים ומלאי",
-        "nav_maint": "🔧 שגרת טיפולים ותחזוקה",
+        "nav_cons": "📦 מלאי מתכלים",
+        "nav_maint": "🔧 טיפולים ותחזוקה",
         "dash_low_stock": "⚠️ התראות חוסר במלאי",
         "dash_maint": "⏰ טיפולי תחזוקה בפיגור",
         "all_good_stock": "הכל מתקתק. אין חוסרים במלאי.",
@@ -97,7 +97,7 @@ t = {
         "col_freq": "תדירות טיפול (בימים)",
         "col_last_serv": "תאריך טיפול אחרון",
         "add_new_equip": "➕ הוספת מכונה חדשה",
-        "add_new_jig": "➕ הוספת עזר/ג'יג חדש",
+        "add_new_jig": "➕ הוספת ג'יג/תצורה",
         "add_new_cons": "➕ הוספת פריט מלאי חדש",
         "add_new_maint": "➕ הוספת משימת תחזוקה",
         "btn_submit": "שמירה למאגר הנתונים"
@@ -157,7 +157,7 @@ eq_df = load_data("equipment.csv")
 eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 
-# DYNAMIC DROPDOWN GENERATION: Get unique machine IDs for other tabs
+# DYNAMIC DROPDOWN GENERATION
 machine_ids = eq_df['ID'].dropna().unique().tolist()
 if not machine_ids:
     machine_ids = ["NO_MACHINES_FOUND"]
@@ -165,18 +165,20 @@ if not machine_ids:
 cons_df = load_data("consumables.csv")
 maint_df = load_data("maintenance.csv")
 
-# AUTO-HEAL JIGS FILE
+# AUTO-HEAL JIGS FILE (Restructures to new merged Jig/Config format)
 try:
     jigs_df = load_data("jigs.csv")
-    if 'Jig_Name_HE' not in jigs_df.columns:
+    if 'Name_HE' not in jigs_df.columns:
         raise ValueError("Old Jigs format detected")
 except (FileNotFoundError, ValueError):
     jigs_df = pd.DataFrame({
         "Machine_ID": ["MAC-01", "MAC-01", "MAC-02"],
-        "Jig_Name_EN": ["Crosscut Sled", "Tenoning Jig", "Tapering Jig"],
-        "Jig_Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "ג'יג חיתוך זוויות"],
-        "Mode_Config_EN": ["Standard 90 deg", "Vertical lock", "Variable angle"],
-        "Mode_Config_HE": ["90 מעלות סטנדרטי", "נעילה אנכית", "זווית משתנה"],
+        "Name_EN": ["Crosscut Sled", "Tenoning Jig", "Variable Angle Taper"],
+        "Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "חיתוך זווית משתנה"],
+        "Purpose_EN": ["Crosscutting 90 deg", "Cutting tenons vertically", "Tapered cuts"],
+        "Purpose_HE": ["חיתוך 90 מעלות", "חיתוך סין בצורה אנכית", "חיתוך בזווית משתנה"],
+        "Notes_EN": ["Keep waxed", "Clamp tightly", ""],
+        "Notes_HE": ["לשמן שעווה", "להדק היטב", ""],
         "Storage_EN": ["Wall Rack A", "Shelf 2", "Under MLT100"],
         "Storage_HE": ["קיר תלייה א'", "מדף 2", "מתחת למקיטה"]
     })
@@ -240,7 +242,6 @@ if st.session_state.current_page == "Homepage":
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    # Add Item Form
     with st.expander(t[lang]["add_new_equip"]):
         with st.form("form_equip", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
@@ -290,43 +291,53 @@ elif st.session_state.current_page == "Equipment":
 elif st.session_state.current_page == "Jigs":
     st.header(t[lang]["nav_jigs"])
     
-    # Add Item Form
     with st.expander(t[lang]["add_new_jig"]):
         with st.form("form_jig", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
             n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
-            n_jig_en = f_c2.text_input("Jig Name (English)")
-            n_jig_he = f_c3.text_input("שם עזר/ג'יג (עברית)")
+            n_name_en = f_c2.text_input("Jig/Config. Name (English)")
+            n_name_he = f_c3.text_input("שם הג׳יג/התצורה (עברית)")
             
             f_c4, f_c5 = st.columns(2)
-            n_mod_en = f_c4.text_input("Configuration (English)")
-            n_mod_he = f_c5.text_input("תצורה או כיוון (עברית)")
+            n_purp_en = f_c4.text_input("Purpose (English)")
+            n_purp_he = f_c5.text_input("מטרה/ייעוד (עברית)")
             
             f_c6, f_c7 = st.columns(2)
-            n_stor_en = f_c6.text_input("Storage Location (English)")
-            n_stor_he = f_c7.text_input("מקום אחסון (עברית)")
+            n_notes_en = f_c6.text_input("Notes (English)")
+            n_notes_he = f_c7.text_input("הערות (עברית)")
+            
+            f_c8, f_c9 = st.columns(2)
+            n_stor_en = f_c8.text_input("Storage Location (English)")
+            n_stor_he = f_c9.text_input("מקום אחסון (עברית)")
             
             if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Jig_Name_EN": n_jig_en, "Jig_Name_HE": n_jig_he, "Mode_Config_EN": n_mod_en, "Mode_Config_HE": n_mod_he, "Storage_EN": n_stor_en, "Storage_HE": n_stor_he}])
+                new_row = pd.DataFrame([{
+                    "Machine_ID": n_mid, "Name_EN": n_name_en, "Name_HE": n_name_he,
+                    "Purpose_EN": n_purp_en, "Purpose_HE": n_purp_he,
+                    "Notes_EN": n_notes_en, "Notes_HE": n_notes_he,
+                    "Storage_EN": n_stor_en, "Storage_HE": n_stor_he
+                }])
                 jigs_df = pd.concat([jigs_df, new_row], ignore_index=True)
                 save_data(jigs_df, "jigs.csv")
                 st.rerun()
                 
     if lang == "he":
-        cols = ["Storage_HE", "Mode_Config_HE", "Jig_Name_HE", "Machine_ID"]
+        cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"]
     else:
-        cols = ["Machine_ID", "Jig_Name_EN", "Mode_Config_EN", "Storage_EN"]
+        cols = ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
         
     edited_jigs = st.data_editor(
         jigs_df, column_order=cols, num_rows="dynamic", use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
-            "Jig_Name_EN": st.column_config.TextColumn("Jig Name"),
-            "Jig_Name_HE": st.column_config.TextColumn("שם עזר/ג'יג"),
-            "Mode_Config_EN": st.column_config.TextColumn("Configuration"),
-            "Mode_Config_HE": st.column_config.TextColumn("תצורה או כיוון"),
+            "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
+            "Name_HE": st.column_config.TextColumn("שם הג׳יג/התצורה"),
+            "Purpose_EN": st.column_config.TextColumn("Purpose"),
+            "Purpose_HE": st.column_config.TextColumn("מטרה/ייעוד"),
+            "Notes_EN": st.column_config.TextColumn("Notes"),
+            "Notes_HE": st.column_config.TextColumn("הערות"),
             "Storage_EN": st.column_config.TextColumn("Storage Location"),
-            "Storage_HE": st.column_config.TextColumn("מקום אחסון"),
+            "Storage_HE": st.column_config.TextColumn("מקום אחסון")
         }
     )
     if not edited_jigs.equals(jigs_df):
@@ -337,7 +348,6 @@ elif st.session_state.current_page == "Jigs":
 elif st.session_state.current_page == "Consumables":
     st.header(t[lang]["nav_cons"])
     
-    # Add Item Form
     with st.expander(t[lang]["add_new_cons"]):
         with st.form("form_cons", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
@@ -382,7 +392,6 @@ elif st.session_state.current_page == "Consumables":
 elif st.session_state.current_page == "Maintenance":
     st.header(t[lang]["nav_maint"])
     
-    # Add Item Form
     with st.expander(t[lang]["add_new_maint"]):
         with st.form("form_maint", clear_on_submit=True):
             f_c1, f_c2, f_c3 = st.columns(3)
