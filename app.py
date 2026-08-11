@@ -61,6 +61,8 @@ t = {
         "all_good_maint": "All machinery is up to date.",
         "btn_fix_stock": "Update Stock ➔",
         "btn_mark_done": "Mark Done ✓",
+        "btn_approve": "Approve ✓",
+        "btn_wait": "Waiting...",
         "col_mach_id": "Machine ID",
         "col_cat": "Category",
         "col_name": "Name & Model",
@@ -80,6 +82,7 @@ t = {
         "req_safety": "Requires Safety Check",
         "safety_cleared": "Safety Cleared (Admin)",
         "is_private": "Private Collection Tool",
+        "pending_admin": "⏳ Awaiting Admin Safety Check",
         "err_safety": "⚠️ Cannot complete: Pending Admin Safety Clearance!",
         "err_early": "⚠️ Cannot complete before the scheduled next service date.",
         "due_today": "Due Today",
@@ -102,6 +105,8 @@ t = {
         "all_good_maint": "כל המכונות מתוחזקות ומוכנות לעבודה.",
         "btn_fix_stock": "לעדכון המלאי ➔",
         "btn_mark_done": "סומן כבוצע ✓",
+        "btn_approve": "אישור מנהל ✓",
+        "btn_wait": "ממתין...",
         "col_mach_id": "קוד מכונה",
         "col_cat": "קטגוריה",
         "col_name": "שם/דגם",
@@ -121,6 +126,7 @@ t = {
         "req_safety": "דורש אישור בטיחות",
         "safety_cleared": "אושר בטיחותית (מנהל)",
         "is_private": "כלי אוסף פרטי",
+        "pending_admin": "⏳ ממתין לאישור בטיחות של מנהל",
         "err_safety": "⚠️ לא ניתן להשלים: ממתין לאישור בטיחות של מנהל!",
         "err_early": "⚠️ לא ניתן לסמן כבוצע לפני תאריך היעד שנקבע.",
         "due_today": "לביצוע היום",
@@ -163,7 +169,7 @@ if not os.path.exists("consumables.csv"):
 if not os.path.exists("jigs.csv"):
     pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []}).to_csv("jigs.csv", index=False)
 if not os.path.exists("maintenance.csv"):
-    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": []}).to_csv("maintenance.csv", index=False)
+    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": [], "Pending_Approval": []}).to_csv("maintenance.csv", index=False)
 
 # Safe Load: Equipment
 eq_df = load_data("equipment.csv")
@@ -173,10 +179,19 @@ eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 
 # Safe Load: Maintenance
 maint_df = load_data("maintenance.csv")
-maint_df['Req_Safety'] = maint_df.get('Req_Safety', False).fillna(False).astype(bool)
-maint_df['Safety_Cleared'] = maint_df.get('Safety_Cleared', False).fillna(False).astype(bool)
-maint_df['Responsible'] = maint_df.get('Responsible', "").fillna("").astype(str)
-maint_df['Freq_Days'] = pd.to_numeric(maint_df['Freq_Days'], errors='coerce').fillna(30).astype(int)
+m_needs_save = False
+if 'Req_Safety' not in maint_df.columns:
+    maint_df['Req_Safety'] = False
+    maint_df['Safety_Cleared'] = False
+    m_needs_save = True
+if 'Responsible' not in maint_df.columns:
+    maint_df['Responsible'] = ""
+    m_needs_save = True
+if 'Pending_Approval' not in maint_df.columns:
+    maint_df['Pending_Approval'] = False
+    m_needs_save = True
+if m_needs_save:
+    save_data(maint_df, "maintenance.csv")
 
 # Safe Load: Consumables
 cons_df = load_data("consumables.csv")
@@ -226,7 +241,6 @@ if st.session_state.current_page == "Homepage":
     with col2:
         st.subheader(t[lang]["dash_maint"])
         
-        # Safe Date Calculations
         dash_maint = maint_df.copy()
         dash_maint['Last_Serviced_DT'] = pd.to_datetime(dash_maint['Last_Serviced'], errors='coerce')
         dash_maint['Next_Due_DT'] = dash_maint['Last_Serviced_DT'] + pd.to_timedelta(dash_maint['Freq_Days'], unit='D')
@@ -234,7 +248,6 @@ if st.session_state.current_page == "Homepage":
         dash_maint['Days_Until'] = (dash_maint['Next_Due_DT'] - today_dt).dt.days
 
         overdue = dash_maint[dash_maint['Days_Until'] < 0]
-        
         upcoming_long = dash_maint[(dash_maint['Freq_Days'] > 7) & (dash_maint['Days_Until'] >= 0) & (dash_maint['Days_Until'] <= 3)]
         upcoming_short = dash_maint[(dash_maint['Freq_Days'] <= 7) & (dash_maint['Days_Until'] >= 0) & (dash_maint['Days_Until'] <= 1)]
         upcoming = pd.concat([upcoming_long, upcoming_short])
@@ -242,46 +255,79 @@ if st.session_state.current_page == "Homepage":
         if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
-            # Render Overdue (Red)
+            # Overdue loop
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
-                    if row['Req_Safety'] and not row['Safety_Cleared']:
+                    if row['Pending_Approval']:
+                        st.info(f"🛡️ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['pending_admin']}")
+                    elif row['Req_Safety']:
                         st.error(f"🚨 **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['req_safety']}")
                     else:
                         st.error(f"🚨 **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['overdue']}")
                         
                 with c_btn:
-                    if st.button(t[lang]["btn_mark_done"], key=f"done_ovr_{idx}"):
-                        if row['Req_Safety'] and not row['Safety_Cleared']:
-                            st.error(t[lang]["err_safety"])
+                    if row['Pending_Approval']:
+                        if is_admin:
+                            if st.button(t[lang]["btn_approve"], key=f"app_ovr_{idx}"):
+                                maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                                maint_df.at[idx, 'Pending_Approval'] = False
+                                maint_df.at[idx, 'Safety_Cleared'] = False
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                st.rerun()
                         else:
-                            maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                            maint_df.at[idx, 'Safety_Cleared'] = False
-                            save_data(maint_df, "maintenance.csv")
+                            st.button(t[lang]["btn_wait"], key=f"wait_ovr_{idx}", disabled=True)
+                    else:
+                        if st.button(t[lang]["btn_mark_done"], key=f"done_ovr_{idx}"):
+                            if row['Req_Safety']:
+                                if is_admin:
+                                    maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                                else:
+                                    maint_df.at[idx, 'Pending_Approval'] = True
+                            else:
+                                maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
                             st.rerun()
 
-            # Render Upcoming (Orange/Warning)
+            # Upcoming loop
             for idx, row in upcoming.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
                     due_text = t[lang]["due_today"] if row['Days_Until'] == 0 else f"{int(row['Days_Until'])} {t[lang]['days_left']}"
-                    if row['Req_Safety'] and not row['Safety_Cleared']:
+                    
+                    if row['Pending_Approval']:
+                        st.info(f"🛡️ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['pending_admin']}")
+                    elif row['Req_Safety']:
                         st.warning(f"⏳ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {due_text} ({t[lang]['req_safety']})")
                     else:
                         st.warning(f"⏳ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {due_text}")
                         
                 with c_btn:
-                    if st.button(t[lang]["btn_mark_done"], key=f"done_upc_{idx}"):
-                        if row['Days_Until'] > 0:
-                            st.error(t[lang]["err_early"])
-                        elif row['Req_Safety'] and not row['Safety_Cleared']:
-                            st.error(t[lang]["err_safety"])
+                    if row['Pending_Approval']:
+                        if is_admin:
+                            if st.button(t[lang]["btn_approve"], key=f"app_upc_{idx}"):
+                                maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                                maint_df.at[idx, 'Pending_Approval'] = False
+                                maint_df.at[idx, 'Safety_Cleared'] = False
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                st.rerun()
                         else:
-                            maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                            maint_df.at[idx, 'Safety_Cleared'] = False
-                            save_data(maint_df, "maintenance.csv")
-                            st.rerun()
+                            st.button(t[lang]["btn_wait"], key=f"wait_upc_{idx}", disabled=True)
+                    else:
+                        if st.button(t[lang]["btn_mark_done"], key=f"done_upc_{idx}"):
+                            if row['Days_Until'] > 0:
+                                st.error(t[lang]["err_early"])
+                            elif row['Req_Safety']:
+                                if is_admin:
+                                    maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                                else:
+                                    maint_df.at[idx, 'Pending_Approval'] = True
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                st.rerun()
+                            else:
+                                maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
 elif st.session_state.current_page == "Equipment":
@@ -317,7 +363,7 @@ elif st.session_state.current_page == "Equipment":
     if not is_admin: cols.remove("Is_Private")
     
     edited_eq = st.data_editor(
-        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -369,7 +415,7 @@ elif st.session_state.current_page == "Jigs":
                 
     cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -411,7 +457,7 @@ elif st.session_state.current_page == "Consumables":
                 
     cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows=row_control, use_container_width=True,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -445,14 +491,13 @@ elif st.session_state.current_page == "Maintenance":
             n_req_safety = st.checkbox(t[lang]["req_safety"])
             
             if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False, "Responsible": n_resp}])
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False, "Responsible": n_resp, "Pending_Approval": False}])
                 maint_df = pd.concat([maint_df, new_row], ignore_index=True)
                 save_data(maint_df, "maintenance.csv")
                 st.rerun()
                 
     maint_display = maint_df.copy()
     
-    # Safely cast objects to native Python date objects to prevent TypeCompatibility crashes
     last_serv_dt = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce')
     next_due_dt = last_serv_dt + pd.to_timedelta(maint_display['Freq_Days'], unit='D')
     
@@ -461,10 +506,11 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety"]
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
+    disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
-        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols,
+        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
@@ -477,8 +523,15 @@ elif st.session_state.current_page == "Maintenance":
             "Safety_Cleared": st.column_config.CheckboxColumn(t[lang]["safety_cleared"])
         }
     )
+    
     if not edited_maint.equals(maint_display):
-        # Convert the safe date objects back to standardized strings before saving
+        # Auto-catch table manual approvals by the Admin
+        for idx in edited_maint.index:
+            if edited_maint.at[idx, 'Safety_Cleared'] == True and edited_maint.at[idx, 'Pending_Approval'] == True:
+                edited_maint.at[idx, 'Last_Serviced'] = datetime.today().date()
+                edited_maint.at[idx, 'Safety_Cleared'] = False
+                edited_maint.at[idx, 'Pending_Approval'] = False
+                
         save_df = edited_maint.drop(columns=['Next_Due'])
         save_df['Last_Serviced'] = pd.to_datetime(save_df['Last_Serviced'], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
         save_data(save_df, "maintenance.csv")
