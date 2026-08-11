@@ -21,7 +21,7 @@ lang = "he" if lang_choice == "עברית" else "en"
 # --- PRO-CRM AESTHETIC CSS INJECTION ---
 css_base = """
 <style>
-/* 1. SAFE TYPOGRAPHY (Prioritize Calibri, exclude internal icons to prevent "Text-on-Text" bugs) */
+/* 1. SAFE TYPOGRAPHY */
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
 
 html, body, p, h1, h2, h3, h4, h5, h6, span, label, div.stButton button p {
@@ -34,12 +34,15 @@ span.material-symbols-rounded, i, svg {
 
 /* 2. CRM BACKGROUND & CLEANUP */
 .stApp { background-color: #F8FAFC !important; }
-header, [data-testid="stHeader"], footer, #MainMenu { display: none !important; }
+
+/* FIX: Keep the header visible for the menu button, but make it transparent. Hide only the footer and top-right toolbar */
+header, [data-testid="stHeader"] { background-color: transparent !important; }
+footer, [data-testid="stToolbar"] { display: none !important; }
 
 /* 3. HEADINGS */
 h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
 
-/* 4. SIDEBAR MENU STYLING (Fixed disappearing button bug) */
+/* 4. SIDEBAR MENU STYLING */
 [data-testid="stSidebar"] {
     background-color: #FFFFFF !important;
     box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
@@ -61,7 +64,7 @@ h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spac
     color: #0F172A !important;
 }
 
-/* 5. MAIN ACTION BUTTONS (Save, Done, Approve) */
+/* 5. MAIN ACTION BUTTONS */
 [data-testid="stVerticalBlock"] div.stButton > button {
     background-color: #2563EB !important;
     color: #FFFFFF !important;
