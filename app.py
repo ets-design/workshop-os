@@ -21,34 +21,31 @@ lang = "he" if lang_choice == "עברית" else "en"
 # --- PRO-CRM AESTHETIC CSS INJECTION ---
 css_base = """
 <style>
-/* 1. SAFE TYPOGRAPHY */
+/* 1. SAFE TYPOGRAPHY (Target text explicitly, protect icons) */
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
 
-html, body, p, h1, h2, h3, h4, h5, h6, span, label, div.stButton button p {
-    font-family: 'Calibri', 'Heebo', sans-serif;
+html, body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded), label, div.stButton button p {
+    font-family: 'Calibri', 'Heebo', sans-serif !important;
 }
-/* PROTECT STREAMLIT UI ICONS */
-span.material-symbols-rounded, i, svg {
+.material-symbols-rounded, svg {
     font-family: 'Material Symbols Rounded', sans-serif !important;
 }
 
 /* 2. CRM BACKGROUND & CLEANUP */
 .stApp { background-color: #F8FAFC !important; }
-
-/* FIX: Restored header so the menu toggle is visible, just making it transparent */
-header, [data-testid="stHeader"] { 
-    background-color: transparent !important; 
-}
-footer { display: none !important; }
+header, [data-testid="stHeader"] { background-color: transparent !important; }
+footer, [data-testid="stToolbar"] { display: none !important; }
 
 /* 3. HEADINGS */
 h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
 
-/* 4. SIDEBAR MENU STYLING */
+/* 4. SIDEBAR MENU STYLING (Wider sidebar for one-line buttons) */
 [data-testid="stSidebar"] {
     background-color: #FFFFFF !important;
     box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
     border: none !important;
+    min-width: 330px !important;
+    max-width: 380px !important;
 }
 [data-testid="stSidebar"] div.stButton > button {
     background-color: transparent !important;
@@ -131,6 +128,19 @@ input, select, textarea {
 [data-testid="stSidebar"] div.stButton > button p {
     text-align: right !important;
 }
+
+/* Flip the Collapse/Expand arrows so they point the right way in Hebrew */
+[data-testid="stSidebarCollapseButton"] svg, [data-testid="collapsedControl"] svg {
+    transform: scaleX(-1) !important;
+}
+
+/* Eliminate the broken cross-screen slide animation in RTL mode. 
+   It will now gracefully snap and fade instead. */
+[data-testid="stSidebar"] {
+    transition-property: opacity, width, min-width, max-width !important;
+    transition-duration: 0.2s !important;
+}
+
 @media screen and (min-width: 768px) {
     .stApp { direction: rtl !important; }
 }
@@ -252,6 +262,7 @@ if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
 # --- ADMIN AUTHENTICATION ---
+# A transparent spacer to push the Admin PIN input above the Streamlit "Manage App" button
 st.sidebar.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
