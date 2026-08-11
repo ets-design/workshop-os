@@ -21,14 +21,11 @@ lang = "he" if lang_choice == "עברית" else "en"
 # --- PRO-CRM AESTHETIC CSS INJECTION ---
 css_base = """
 <style>
-/* 1. SAFE TYPOGRAPHY (Target text explicitly, protect icons) */
+/* 1. SAFE TYPOGRAPHY (Target text ONLY, protecting the UI icons) */
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
 
-html, body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded), label, div.stButton button p {
+p, h1, h2, h3, h4, h5, h6, label, div.stButton button p {
     font-family: 'Calibri', 'Heebo', sans-serif !important;
-}
-.material-symbols-rounded, svg {
-    font-family: 'Material Symbols Rounded', sans-serif !important;
 }
 
 /* 2. CRM BACKGROUND & CLEANUP */
@@ -39,13 +36,11 @@ footer, [data-testid="stToolbar"] { display: none !important; }
 /* 3. HEADINGS */
 h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
 
-/* 4. SIDEBAR MENU STYLING (Wider sidebar for one-line buttons) */
+/* 4. SIDEBAR MENU STYLING */
 [data-testid="stSidebar"] {
     background-color: #FFFFFF !important;
     box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
     border: none !important;
-    min-width: 330px !important;
-    max-width: 380px !important;
 }
 [data-testid="stSidebar"] div.stButton > button {
     background-color: transparent !important;
@@ -57,6 +52,7 @@ h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spac
     padding: 0.5rem 1rem !important;
     transition: all 0.2s ease !important;
     width: 100% !important; 
+    white-space: nowrap !important; /* Prevents text disappearing or wrapping */
 }
 [data-testid="stSidebar"] div.stButton > button:hover {
     background-color: #F1F5F9 !important;
@@ -113,36 +109,38 @@ div[data-testid="stTextInput"] button { display: none !important; } /* Hide pass
 css_rtl = """
 <style>
 /* RTL SPECIFIC ALIGNMENT */
-.block-container, [data-testid="stSidebarUserContent"] {
-    direction: rtl !important;
-}
-.stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
-    text-align: right !important;
-}
-input, select, textarea {
-    text-align: right !important;
-}
-[data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
-    direction: rtl !important;
-}
-[data-testid="stSidebar"] div.stButton > button p {
-    text-align: right !important;
-}
+.block-container, [data-testid="stSidebarUserContent"] { direction: rtl !important; }
+.stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label { text-align: right !important; }
+input, select, textarea { text-align: right !important; }
+[data-testid="stDataFrame"], [data-testid="stDataFrame"] > div { direction: rtl !important; }
+[data-testid="stSidebar"] div.stButton > button p { text-align: right !important; }
 
-/* Flip the Collapse/Expand arrows so they point the right way in Hebrew */
+/* Flip the Expand/Collapse arrows in Hebrew */
 [data-testid="stSidebarCollapseButton"] svg, [data-testid="collapsedControl"] svg {
     transform: scaleX(-1) !important;
 }
 
-/* Eliminate the broken cross-screen slide animation in RTL mode. 
-   It will now gracefully snap and fade instead. */
-[data-testid="stSidebar"] {
-    transition-property: opacity, width, min-width, max-width !important;
-    transition-duration: 0.2s !important;
-}
-
 @media screen and (min-width: 768px) {
+    /* Set the app structural direction */
     .stApp { direction: rtl !important; }
+    
+    /* INTERCEPT AND REVERSE STREAMLIT'S SLIDE ANIMATION */
+    [data-testid="stSidebar"] {
+        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+        margin-left: 0 !important; margin-right: 0 !important;
+    }
+    /* When closed, slide it off the RIGHT edge instead of dragging across to the left */
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        transform: translateX(100%) !important;
+        margin-left: 0 !important; margin-right: 0 !important;
+    }
+    /* When open, snap to origin */
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        transform: translateX(0) !important;
+        margin-left: 0 !important; margin-right: 0 !important;
+    }
+    /* Move the little "expand" arrow to the correct edge when closed */
+    [data-testid="collapsedControl"] { left: auto !important; right: 1rem !important; }
 }
 </style>
 """
@@ -262,7 +260,6 @@ if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
 # --- ADMIN AUTHENTICATION ---
-# A transparent spacer to push the Admin PIN input above the Streamlit "Manage App" button
 st.sidebar.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
@@ -477,7 +474,7 @@ elif st.session_state.current_page == "Equipment":
     disabled_cols_eq = [] if is_admin else cols
     
     edited_eq = st.data_editor(
-        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq, height=550,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -531,7 +528,7 @@ elif st.session_state.current_page == "Jigs":
     disabled_cols_jigs = [] if is_admin else cols
     
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs, height=550,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -575,7 +572,7 @@ elif st.session_state.current_page == "Consumables":
     disabled_cols_cons = [] if is_admin else [c for c in cols if c != "Stock"]
     
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons, height=550,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -632,7 +629,7 @@ elif st.session_state.current_page == "Maintenance":
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
-        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True, height=550,
+        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
