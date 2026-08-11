@@ -32,8 +32,7 @@ if lang == "he":
         }
         .stButton>button { text-align: center !important; }
         section[data-testid="stSidebar"] { direction: rtl !important; }
-        /* Hide password reveal eye icon */
-        div[data-testid="stTextInput"] button { display: none !important; }
+        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
         </style>
         """,
         unsafe_allow_html=True
@@ -42,8 +41,7 @@ else:
     st.markdown(
         """
         <style>
-        /* Hide password reveal eye icon in English mode too */
-        div[data-testid="stTextInput"] button { display: none !important; }
+        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
         </style>
         """,
         unsafe_allow_html=True
@@ -167,27 +165,26 @@ if not os.path.exists("jigs.csv"):
 if not os.path.exists("maintenance.csv"):
     pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": []}).to_csv("maintenance.csv", index=False)
 
-# Auto-Heal Columns
+# Safe Load: Equipment
 eq_df = load_data("equipment.csv")
-if 'Is_Private' not in eq_df.columns:
-    eq_df['Is_Private'] = False
-    save_data(eq_df, "equipment.csv")
+eq_df['Is_Private'] = eq_df.get('Is_Private', False).fillna(False).astype(bool)
 eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 
+# Safe Load: Maintenance
 maint_df = load_data("maintenance.csv")
-m_needs_save = False
-if 'Req_Safety' not in maint_df.columns:
-    maint_df['Req_Safety'] = False
-    maint_df['Safety_Cleared'] = False
-    m_needs_save = True
-if 'Responsible' not in maint_df.columns:
-    maint_df['Responsible'] = ""
-    m_needs_save = True
-if m_needs_save:
-    save_data(maint_df, "maintenance.csv")
+maint_df['Req_Safety'] = maint_df.get('Req_Safety', False).fillna(False).astype(bool)
+maint_df['Safety_Cleared'] = maint_df.get('Safety_Cleared', False).fillna(False).astype(bool)
+maint_df['Responsible'] = maint_df.get('Responsible', "").fillna("").astype(str)
+maint_df['Freq_Days'] = pd.to_numeric(maint_df['Freq_Days'], errors='coerce').fillna(30).astype(int)
 
+# Safe Load: Consumables
 cons_df = load_data("consumables.csv")
+cons_df['Stock'] = pd.to_numeric(cons_df['Stock'], errors='coerce').fillna(0).astype(int)
+cons_df['Threshold'] = pd.to_numeric(cons_df['Threshold'], errors='coerce').fillna(0).astype(int)
+cons_df['PPU'] = pd.to_numeric(cons_df['PPU'], errors='coerce').fillna(0.0).astype(float)
+
+# Safe Load: Jigs
 try:
     jigs_df = load_data("jigs.csv")
     if 'Name_HE' not in jigs_df.columns: raise ValueError()
@@ -228,21 +225,24 @@ if st.session_state.current_page == "Homepage":
     # Maintenance Block (Overdue & Upcoming)
     with col2:
         st.subheader(t[lang]["dash_maint"])
-        maint_df['Last_Serviced_DT'] = pd.to_datetime(maint_df['Last_Serviced'], errors='coerce')
-        maint_df['Next_Due_DT'] = maint_df['Last_Serviced_DT'] + pd.to_timedelta(maint_df['Freq_Days'], unit='D')
-        today_dt = pd.to_datetime(datetime.today().date())
-        maint_df['Days_Until'] = (maint_df['Next_Due_DT'] - today_dt).dt.days
-
-        overdue = maint_df[maint_df['Days_Until'] < 0]
         
-        upcoming_long = maint_df[(maint_df['Freq_Days'] > 7) & (maint_df['Days_Until'] >= 0) & (maint_df['Days_Until'] <= 3)]
-        upcoming_short = maint_df[(maint_df['Freq_Days'] <= 7) & (maint_df['Days_Until'] >= 0) & (maint_df['Days_Until'] <= 1)]
+        # Safe Date Calculations
+        dash_maint = maint_df.copy()
+        dash_maint['Last_Serviced_DT'] = pd.to_datetime(dash_maint['Last_Serviced'], errors='coerce')
+        dash_maint['Next_Due_DT'] = dash_maint['Last_Serviced_DT'] + pd.to_timedelta(dash_maint['Freq_Days'], unit='D')
+        today_dt = pd.to_datetime(datetime.today().date())
+        dash_maint['Days_Until'] = (dash_maint['Next_Due_DT'] - today_dt).dt.days
+
+        overdue = dash_maint[dash_maint['Days_Until'] < 0]
+        
+        upcoming_long = dash_maint[(dash_maint['Freq_Days'] > 7) & (dash_maint['Days_Until'] >= 0) & (dash_maint['Days_Until'] <= 3)]
+        upcoming_short = dash_maint[(dash_maint['Freq_Days'] <= 7) & (dash_maint['Days_Until'] >= 0) & (dash_maint['Days_Until'] <= 1)]
         upcoming = pd.concat([upcoming_long, upcoming_short])
         
         if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
-            # Overdue loop
+            # Render Overdue (Red)
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
@@ -258,18 +258,14 @@ if st.session_state.current_page == "Homepage":
                         else:
                             maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                             maint_df.at[idx, 'Safety_Cleared'] = False
-                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until']), "maintenance.csv")
+                            save_data(maint_df, "maintenance.csv")
                             st.rerun()
 
-            # Upcoming loop
+            # Render Upcoming (Orange/Warning)
             for idx, row in upcoming.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
-                    if row['Days_Until'] == 0:
-                        due_text = t[lang]["due_today"]
-                    else:
-                        due_text = f"{row['Days_Until']} {t[lang]['days_left']}"
-                    
+                    due_text = t[lang]["due_today"] if row['Days_Until'] == 0 else f"{int(row['Days_Until'])} {t[lang]['days_left']}"
                     if row['Req_Safety'] and not row['Safety_Cleared']:
                         st.warning(f"⏳ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {due_text} ({t[lang]['req_safety']})")
                     else:
@@ -284,7 +280,7 @@ if st.session_state.current_page == "Homepage":
                         else:
                             maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                             maint_df.at[idx, 'Safety_Cleared'] = False
-                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until']), "maintenance.csv")
+                            save_data(maint_df, "maintenance.csv")
                             st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
@@ -455,9 +451,13 @@ elif st.session_state.current_page == "Maintenance":
                 st.rerun()
                 
     maint_display = maint_df.copy()
-    maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce')
-    maint_display['Next_Due'] = (maint_display['Last_Serviced'] + pd.to_timedelta(maint_display['Freq_Days'], unit='D')).dt.date
-    maint_display['Last_Serviced'] = maint_display['Last_Serviced'].dt.date
+    
+    # Safely cast objects to native Python date objects to prevent TypeCompatibility crashes
+    last_serv_dt = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce')
+    next_due_dt = last_serv_dt + pd.to_timedelta(maint_display['Freq_Days'], unit='D')
+    
+    maint_display['Last_Serviced'] = last_serv_dt.apply(lambda x: x.date() if pd.notnull(x) else None)
+    maint_display['Next_Due'] = next_due_dt.apply(lambda x: x.date() if pd.notnull(x) else None)
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
@@ -478,6 +478,8 @@ elif st.session_state.current_page == "Maintenance":
         }
     )
     if not edited_maint.equals(maint_display):
-        edited_maint['Last_Serviced'] = pd.to_datetime(edited_maint['Last_Serviced']).dt.strftime('%Y-%m-%d')
-        save_data(edited_maint.drop(columns=['Next_Due']), "maintenance.csv")
+        # Convert the safe date objects back to standardized strings before saving
+        save_df = edited_maint.drop(columns=['Next_Due'])
+        save_df['Last_Serviced'] = pd.to_datetime(save_df['Last_Serviced'], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
+        save_data(save_df, "maintenance.csv")
         st.rerun()
