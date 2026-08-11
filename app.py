@@ -35,9 +35,11 @@ span.material-symbols-rounded, i, svg {
 /* 2. CRM BACKGROUND & CLEANUP */
 .stApp { background-color: #F8FAFC !important; }
 
-/* FIX: Keep the header visible for the menu button, but make it transparent. Hide only the footer and top-right toolbar */
-header, [data-testid="stHeader"] { background-color: transparent !important; }
-footer, [data-testid="stToolbar"] { display: none !important; }
+/* FIX: Restored header so the menu toggle is visible, just making it transparent */
+header, [data-testid="stHeader"] { 
+    background-color: transparent !important; 
+}
+footer { display: none !important; }
 
 /* 3. HEADINGS */
 h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
