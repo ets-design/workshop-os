@@ -138,7 +138,7 @@ t = {
     }
 }
 
-# --- NAVIGATION MENUS (Top of Sidebar) ---
+# --- NAVIGATION MENUS ---
 st.sidebar.markdown("---")
 if st.sidebar.button(t[lang]["nav_home"], use_container_width=True): navigate_to("Homepage")
 if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_to("Equipment")
@@ -146,7 +146,7 @@ if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to("Consumables")
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
-# --- ADMIN AUTHENTICATION (Bottom of Sidebar) ---
+# --- ADMIN AUTHENTICATION ---
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
 is_admin = (admin_pin == "2004")
@@ -171,41 +171,38 @@ if not os.path.exists("jigs.csv"):
 if not os.path.exists("maintenance.csv"):
     pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": [], "Pending_Approval": []}).to_csv("maintenance.csv", index=False)
 
-# Safe Load: Equipment
+# Safe Load & Strict Typing: Equipment
 eq_df = load_data("equipment.csv")
-eq_df['Is_Private'] = eq_df.get('Is_Private', False).fillna(False).astype(bool)
-eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
-eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
+for col in ["ID", "Category", "Name", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
+    eq_df[col] = eq_df.get(col, "").fillna("").astype(str)
+eq_df["Is_Private"] = eq_df.get("Is_Private", False).fillna(False).astype(bool)
 
-# Safe Load: Maintenance
-maint_df = load_data("maintenance.csv")
-m_needs_save = False
-if 'Req_Safety' not in maint_df.columns:
-    maint_df['Req_Safety'] = False
-    maint_df['Safety_Cleared'] = False
-    m_needs_save = True
-if 'Responsible' not in maint_df.columns:
-    maint_df['Responsible'] = ""
-    m_needs_save = True
-if 'Pending_Approval' not in maint_df.columns:
-    maint_df['Pending_Approval'] = False
-    m_needs_save = True
-if m_needs_save:
-    save_data(maint_df, "maintenance.csv")
-
-# Safe Load: Consumables
+# Safe Load & Strict Typing: Consumables
 cons_df = load_data("consumables.csv")
-cons_df['Stock'] = pd.to_numeric(cons_df['Stock'], errors='coerce').fillna(0).astype(int)
-cons_df['Threshold'] = pd.to_numeric(cons_df['Threshold'], errors='coerce').fillna(0).astype(int)
-cons_df['PPU'] = pd.to_numeric(cons_df['PPU'], errors='coerce').fillna(0.0).astype(float)
+for col in ["Machine_ID", "Item_EN", "Item_HE", "Grade"]:
+    cons_df[col] = cons_df.get(col, "").fillna("").astype(str)
+cons_df["Stock"] = pd.to_numeric(cons_df.get("Stock", 0), errors='coerce').fillna(0).astype(int)
+cons_df["Threshold"] = pd.to_numeric(cons_df.get("Threshold", 0), errors='coerce').fillna(0).astype(int)
+cons_df["PPU"] = pd.to_numeric(cons_df.get("PPU", 0.0), errors='coerce').fillna(0.0).astype(float)
 
-# Safe Load: Jigs
+# Safe Load & Strict Typing: Jigs
 try:
     jigs_df = load_data("jigs.csv")
     if 'Name_HE' not in jigs_df.columns: raise ValueError()
 except (FileNotFoundError, ValueError):
     jigs_df = pd.DataFrame({"Machine_ID": ["MAC-01", "MAC-01", "MAC-02"], "Name_EN": ["Crosscut Sled", "Tenoning Jig", "Variable Angle Taper"], "Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "חיתוך זווית משתנה"], "Purpose_EN": ["Crosscutting 90 deg", "Cutting tenons vertically", "Tapered cuts"], "Purpose_HE": ["חיתוך 90 מעלות", "חיתוך סין בצורה אנכית", "חיתוך בזווית משתנה"], "Notes_EN": ["Keep waxed", "Clamp tightly", ""], "Notes_HE": ["לשמן שעווה", "להדק היטב", ""], "Storage_EN": ["Wall Rack A", "Shelf 2", "Under MLT100"], "Storage_HE": ["קיר תלייה א'", "מדף 2", "מתחת למקיטה"]})
     save_data(jigs_df, "jigs.csv")
+
+for col in ["Machine_ID", "Name_EN", "Name_HE", "Purpose_EN", "Purpose_HE", "Notes_EN", "Notes_HE", "Storage_EN", "Storage_HE"]:
+    jigs_df[col] = jigs_df.get(col, "").fillna("").astype(str)
+
+# Safe Load & Strict Typing: Maintenance (Prevents PyArrow Crashes)
+maint_df = load_data("maintenance.csv")
+for col in ["Machine_ID", "Task_EN", "Task_HE", "Responsible"]:
+    maint_df[col] = maint_df.get(col, "").fillna("").astype(str)
+for col in ["Req_Safety", "Safety_Cleared", "Pending_Approval"]:
+    maint_df[col] = maint_df.get(col, False).fillna(False).astype(bool)
+maint_df["Freq_Days"] = pd.to_numeric(maint_df.get("Freq_Days", 30), errors='coerce').fillna(30).astype(int)
 
 machine_ids = eq_df['ID'].dropna().unique().tolist()
 if not machine_ids: machine_ids = ["NO_MACHINES"]
@@ -498,11 +495,16 @@ elif st.session_state.current_page == "Maintenance":
                 
     maint_display = maint_df.copy()
     
-    last_serv_dt = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce')
-    next_due_dt = last_serv_dt + pd.to_timedelta(maint_display['Freq_Days'], unit='D')
-    
-    maint_display['Last_Serviced'] = last_serv_dt.apply(lambda x: x.date() if pd.notnull(x) else None)
-    maint_display['Next_Due'] = next_due_dt.apply(lambda x: x.date() if pd.notnull(x) else None)
+    # Safe date conversion to guarantee proper DateColumn mapping
+    def parse_date(val):
+        try:
+            if pd.isna(val) or str(val).strip() == "": return None
+            return pd.to_datetime(val).date()
+        except:
+            return None
+            
+    maint_display['Last_Serviced'] = maint_display['Last_Serviced'].apply(parse_date)
+    maint_display['Next_Due'] = (pd.to_datetime(maint_display['Last_Serviced']) + pd.to_timedelta(maint_display['Freq_Days'], unit='D')).apply(lambda x: x.date() if pd.notnull(x) else None)
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
@@ -527,12 +529,15 @@ elif st.session_state.current_page == "Maintenance":
     if not edited_maint.equals(maint_display):
         # Auto-catch table manual approvals by the Admin
         for idx in edited_maint.index:
-            if edited_maint.at[idx, 'Safety_Cleared'] == True and edited_maint.at[idx, 'Pending_Approval'] == True:
+            is_cleared = edited_maint.at[idx, 'Safety_Cleared'] == True
+            is_pending = edited_maint.at[idx, 'Pending_Approval'] == True
+            if is_cleared and is_pending:
                 edited_maint.at[idx, 'Last_Serviced'] = datetime.today().date()
                 edited_maint.at[idx, 'Safety_Cleared'] = False
                 edited_maint.at[idx, 'Pending_Approval'] = False
                 
         save_df = edited_maint.drop(columns=['Next_Due'])
-        save_df['Last_Serviced'] = pd.to_datetime(save_df['Last_Serviced'], errors='coerce').dt.strftime('%Y-%m-%d').fillna("")
+        # Convert date objects back to strings safely for CSV storage
+        save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
         save_data(save_df, "maintenance.csv")
         st.rerun()
