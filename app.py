@@ -6,7 +6,7 @@ from datetime import datetime
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Garage Workshop OS", page_icon="🪚", layout="wide")
 
-# --- SESSION STATE FOR NAVIGATION ---
+# --- SESSION STATE & AUTHENTICATION ---
 if 'current_page' not in st.session_state:
     st.session_state.current_page = "Homepage"
 
@@ -23,23 +23,15 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Force RTL direction and right alignment on the entire app and text elements */
         .stApp, .block-container, .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, div {
             direction: rtl !important;
             text-align: right !important;
         }
-        /* Ensure tables and data grids respect RTL */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div, .stDataFrame {
             direction: rtl !important;
         }
-        /* Fix button text alignment */
-        .stButton>button {
-            text-align: center !important; 
-        }
-        /* Correct the sidebar flex ordering */
-        section[data-testid="stSidebar"] {
-            direction: rtl !important;
-        }
+        .stButton>button { text-align: center !important; }
+        section[data-testid="stSidebar"] { direction: rtl !important; }
         </style>
         """,
         unsafe_allow_html=True
@@ -72,7 +64,14 @@ t = {
         "add_new_jig": "➕ Add New Jig/Config",
         "add_new_cons": "➕ Add New Consumable",
         "add_new_maint": "➕ Add Maintenance Task",
-        "btn_submit": "Save to Database"
+        "btn_submit": "Save to Database",
+        "req_safety": "Requires Safety Check",
+        "safety_cleared": "Safety Cleared (Admin)",
+        "is_private": "Private Collection Tool",
+        "err_safety": "⚠️ Cannot complete: Pending Admin Safety Clearance!",
+        "admin_mode": "🛡️ Admin Mode",
+        "user_mode": "👤 User Mode",
+        "admin_pin": "Admin Access PIN"
     },
     "he": {
         "title": "🪚 נגריית הגראז׳ | מערכת ניהול המרחב",
@@ -100,101 +99,78 @@ t = {
         "add_new_jig": "➕ הוספת ג'יג/תצורה",
         "add_new_cons": "➕ הוספת פריט מלאי חדש",
         "add_new_maint": "➕ הוספת משימת תחזוקה",
-        "btn_submit": "שמירה למאגר הנתונים"
+        "btn_submit": "שמירה למאגר הנתונים",
+        "req_safety": "דורש אישור בטיחות",
+        "safety_cleared": "אושר בטיחותית (מנהל)",
+        "is_private": "כלי אוסף פרטי",
+        "err_safety": "⚠️ לא ניתן להשלים: ממתין לאישור בטיחות של מנהל!",
+        "admin_mode": "🛡️ מצב מנהל",
+        "user_mode": "👤 מצב משתמש",
+        "admin_pin": "קוד גישת מנהל"
     }
 }
 
-# --- NAVIGATION SIDEBAR ---
+# --- ADMIN AUTHENTICATION ---
+st.sidebar.markdown("---")
+admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
+is_admin = (admin_pin == "0000")
+
+if is_admin:
+    st.sidebar.success(t[lang]["admin_mode"])
+else:
+    st.sidebar.info(t[lang]["user_mode"])
+
 st.sidebar.markdown("---")
 if st.sidebar.button(t[lang]["nav_home"], use_container_width=True): navigate_to("Homepage")
 if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_to("Equipment")
 if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to("Jigs")
 if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to("Consumables")
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
-st.sidebar.markdown("---")
 
 st.title(t[lang]["title"])
 
-# --- DATA INITIALIZATION ---
-if not os.path.exists("equipment.csv"):
-    pd.DataFrame({
-        "ID": ["MAC-01", "MAC-02", "SHP-01"],
-        "Category": ["Table Saw", "Table Saw", "Sharpening"],
-        "Name": ["SawStop 3HP", "Makita MLT100", "Atoma 400 Diamond"],
-        "Role_EN": ["Solid wood joinery", "Laminates & breakdown", "Flattening & grinding"],
-        "Role_HE": ["עבודות עץ מלא ומחברים", "פירוק לוחות פורמייקה ואלומיניום", "הורדת חומר ויישור אבנים"],
-        "Manual_Link": ["", "", ""],
-        "Product_Link": ["", "", ""],
-        "Grade": ["S", "B", "S"],
-        "Est_Value": [4500, 1500, 120]
-    }).to_csv("equipment.csv", index=False)
-
-if not os.path.exists("consumables.csv"):
-    pd.DataFrame({
-        "Machine_ID": ["MAC-01", "MAC-02", "SHP-01"],
-        "Item_EN": ["Dimar 254x3.2 24T Rip", "Makita D-46408 60T", "Atoma #400 Sheet"],
-        "Item_HE": ["להב דימר 24T עץ מלא", "להב מקיטה 60T דק", "טופס יהלום אטומה 400"],
-        "Stock": [1, 1, 0],
-        "Threshold": [1, 1, 1],
-        "PPU": [350.0, 490.0, 300.0],
-        "Grade": ["A", "C", "S"]
-    }).to_csv("consumables.csv", index=False)
-
-if not os.path.exists("maintenance.csv"):
-    pd.DataFrame({
-        "Machine_ID": ["MAC-01", "MAC-02"],
-        "Task_EN": ["Wax Cast Iron & Check Belt", "Check Motor Brushes"],
-        "Task_HE": ["שימון משטח יציקה ובדיקת רצועה", "בדיקת פחמים במנוע"],
-        "Freq_Days": [30, 90],
-        "Last_Serviced": ["2026-07-15", "2026-06-01"],
-    }).to_csv("maintenance.csv", index=False)
-
+# --- DATA INITIALIZATION & AUTO-HEAL ---
 def load_data(file): return pd.read_csv(file)
 def save_data(df, file): df.to_csv(file, index=False)
 
-# LOAD & FIX DATA TYPES
+if not os.path.exists("equipment.csv"):
+    pd.DataFrame({"ID": [], "Category": [], "Name": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []}).to_csv("equipment.csv", index=False)
+if not os.path.exists("consumables.csv"):
+    pd.DataFrame({"Machine_ID": [], "Item_EN": [], "Item_HE": [], "Stock": [], "Threshold": [], "PPU": [], "Grade": []}).to_csv("consumables.csv", index=False)
+if not os.path.exists("jigs.csv"):
+    pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []}).to_csv("jigs.csv", index=False)
+if not os.path.exists("maintenance.csv"):
+    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": []}).to_csv("maintenance.csv", index=False)
+
+# Auto-Heal Columns
 eq_df = load_data("equipment.csv")
+if 'Is_Private' not in eq_df.columns:
+    eq_df['Is_Private'] = False
+    save_data(eq_df, "equipment.csv")
 eq_df['Manual_Link'] = eq_df['Manual_Link'].fillna("").astype(str)
 eq_df['Product_Link'] = eq_df['Product_Link'].fillna("").astype(str)
 
-# DYNAMIC DROPDOWN GENERATION
-machine_ids = eq_df['ID'].dropna().unique().tolist()
-if not machine_ids:
-    machine_ids = ["NO_MACHINES_FOUND"]
+maint_df = load_data("maintenance.csv")
+if 'Req_Safety' not in maint_df.columns:
+    maint_df['Req_Safety'] = False
+    maint_df['Safety_Cleared'] = False
+    save_data(maint_df, "maintenance.csv")
 
 cons_df = load_data("consumables.csv")
-maint_df = load_data("maintenance.csv")
+jigs_df = load_data("jigs.csv")
 
-# AUTO-HEAL JIGS FILE (Restructures to new merged Jig/Config format)
-try:
-    jigs_df = load_data("jigs.csv")
-    if 'Name_HE' not in jigs_df.columns:
-        raise ValueError("Old Jigs format detected")
-except (FileNotFoundError, ValueError):
-    jigs_df = pd.DataFrame({
-        "Machine_ID": ["MAC-01", "MAC-01", "MAC-02"],
-        "Name_EN": ["Crosscut Sled", "Tenoning Jig", "Variable Angle Taper"],
-        "Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "חיתוך זווית משתנה"],
-        "Purpose_EN": ["Crosscutting 90 deg", "Cutting tenons vertically", "Tapered cuts"],
-        "Purpose_HE": ["חיתוך 90 מעלות", "חיתוך סין בצורה אנכית", "חיתוך בזווית משתנה"],
-        "Notes_EN": ["Keep waxed", "Clamp tightly", ""],
-        "Notes_HE": ["לשמן שעווה", "להדק היטב", ""],
-        "Storage_EN": ["Wall Rack A", "Shelf 2", "Under MLT100"],
-        "Storage_HE": ["קיר תלייה א'", "מדף 2", "מתחת למקיטה"]
-    })
-    save_data(jigs_df, "jigs.csv")
+machine_ids = eq_df['ID'].dropna().unique().tolist()
+if not machine_ids: machine_ids = ["NO_MACHINES"]
 
 L = "_HE" if lang == "he" else "_EN"
+row_control = "dynamic" if is_admin else "fixed"
 
 # --- PAGE: HOMEPAGE (DASHBOARD) ---
 if st.session_state.current_page == "Homepage":
     st.header(t[lang]["nav_home"])
     st.markdown("---")
     
-    if lang == "he":
-        col2, col1 = st.columns(2)
-    else:
-        col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2) if lang == "en" else reversed(st.columns(2))
     
     # Low Stock Block
     with col1:
@@ -225,52 +201,57 @@ if st.session_state.current_page == "Homepage":
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
             for idx, row in overdue.iterrows():
-                if lang == "he":
-                    c_btn, c_text = st.columns([1, 3])
-                else:
-                    c_text, c_btn = st.columns([3, 1])
-                    
+                c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
-                    st.warning(f"🔧 **{row[f'Task{L}']}** ({row['Machine_ID']})")
+                    if row['Req_Safety'] and not row['Safety_Cleared']:
+                        st.error(f"⚠️ **{row[f'Task{L}']}** ({row['Machine_ID']}) - {t[lang]['req_safety']}")
+                    else:
+                        st.warning(f"🔧 **{row[f'Task{L}']}** ({row['Machine_ID']})")
+                        
                 with c_btn:
                     if st.button(t[lang]["btn_mark_done"], key=f"done_{idx}"):
-                        maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                        save_data(maint_df.drop(columns=['Next_Due']), "maintenance.csv")
-                        st.rerun()
+                        if row['Req_Safety'] and not row['Safety_Cleared']:
+                            st.error(t[lang]["err_safety"])
+                        else:
+                            maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
+                            maint_df.at[idx, 'Safety_Cleared'] = False # Reset for next time
+                            save_data(maint_df.drop(columns=['Next_Due']), "maintenance.csv")
+                            st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    with st.expander(t[lang]["add_new_equip"]):
-        with st.form("form_equip", clear_on_submit=True):
-            f_c1, f_c2, f_c3 = st.columns(3)
-            n_id = f_c1.text_input(t[lang]["col_mach_id"])
-            n_cat = f_c2.text_input(t[lang]["col_cat"])
-            n_name = f_c3.text_input(t[lang]["col_name"])
-            
-            f_c4, f_c5 = st.columns(2)
-            n_role_en = f_c4.text_input("Role (English)")
-            n_role_he = f_c5.text_input("ייעוד (עברית)")
-            
-            f_c6, f_c7, f_c8 = st.columns(3)
-            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
-            n_prod = f_c7.text_input("Product URL / קישור למוצר")
-            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
-            
-            if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0}])
-                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                save_data(eq_df, "equipment.csv")
-                st.rerun()
+    if is_admin:
+        with st.expander(t[lang]["add_new_equip"]):
+            with st.form("form_equip", clear_on_submit=True):
+                f_c1, f_c2, f_c3 = st.columns(3)
+                n_id = f_c1.text_input(t[lang]["col_mach_id"])
+                n_cat = f_c2.text_input(t[lang]["col_cat"])
+                n_name = f_c3.text_input(t[lang]["col_name"])
+                
+                f_c4, f_c5 = st.columns(2)
+                n_role_en = f_c4.text_input("Role (English)")
+                n_role_he = f_c5.text_input("ייעוד (עברית)")
+                
+                f_c6, f_c7, f_c8 = st.columns(3)
+                n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+                n_prod = f_c7.text_input("Product URL / קישור למוצר")
+                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+                
+                n_private = st.checkbox(t[lang]["is_private"])
+                
+                if st.form_submit_button(t[lang]["btn_submit"]):
+                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                    eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                    save_data(eq_df, "equipment.csv")
+                    st.rerun()
 
-    if lang == "he":
-        cols = ["Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"]
-    else:
-        cols = ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade"]
-        
+    eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
+    cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
+    
     edited_eq = st.data_editor(
-        eq_df, column_order=cols, num_rows="dynamic", use_container_width=True,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -280,11 +261,15 @@ elif st.session_state.current_page == "Equipment":
             "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן"),
             "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר"),
             "Grade": st.column_config.SelectboxColumn(t[lang]["col_grade"], options=["S", "A", "B", "C", "D", "E", "F"]),
-            "Est_Value": None # Hidden
+            "Is_Private": st.column_config.CheckboxColumn(t[lang]["is_private"]),
+            "Est_Value": None 
         }
     )
-    if not edited_eq.equals(eq_df):
-        save_data(edited_eq, "equipment.csv")
+    if not edited_eq.equals(eq_df_view):
+        if is_admin: save_data(edited_eq, "equipment.csv")
+        else: 
+            eq_df.update(edited_eq)
+            save_data(eq_df, "equipment.csv")
         st.rerun()
 
 # --- PAGE: JIGS & MODES ---
@@ -311,23 +296,14 @@ elif st.session_state.current_page == "Jigs":
             n_stor_he = f_c9.text_input("מקום אחסון (עברית)")
             
             if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{
-                    "Machine_ID": n_mid, "Name_EN": n_name_en, "Name_HE": n_name_he,
-                    "Purpose_EN": n_purp_en, "Purpose_HE": n_purp_he,
-                    "Notes_EN": n_notes_en, "Notes_HE": n_notes_he,
-                    "Storage_EN": n_stor_en, "Storage_HE": n_stor_he
-                }])
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Name_EN": n_name_en, "Name_HE": n_name_he, "Purpose_EN": n_purp_en, "Purpose_HE": n_purp_he, "Notes_EN": n_notes_en, "Notes_HE": n_notes_he, "Storage_EN": n_stor_en, "Storage_HE": n_stor_he}])
                 jigs_df = pd.concat([jigs_df, new_row], ignore_index=True)
                 save_data(jigs_df, "jigs.csv")
                 st.rerun()
                 
-    if lang == "he":
-        cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"]
-    else:
-        cols = ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
-        
+    cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows="dynamic", use_container_width=True,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -367,13 +343,9 @@ elif st.session_state.current_page == "Consumables":
                 save_data(cons_df, "consumables.csv")
                 st.rerun()
                 
-    if lang == "he":
-        cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"]
-    else:
-        cols = ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
-        
+    cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows="dynamic", use_container_width=True,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -403,8 +375,10 @@ elif st.session_state.current_page == "Maintenance":
             n_freq = f_c4.number_input(t[lang]["col_freq"], min_value=1, value=30)
             n_date = f_c5.date_input(t[lang]["col_last_serv"])
             
+            n_req_safety = st.checkbox(t[lang]["req_safety"])
+            
             if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d')}])
+                new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False}])
                 maint_df = pd.concat([maint_df, new_row], ignore_index=True)
                 save_data(maint_df, "maintenance.csv")
                 st.rerun()
@@ -412,19 +386,21 @@ elif st.session_state.current_page == "Maintenance":
     maint_display = maint_df.copy()
     maint_display['Last_Serviced'] = pd.to_datetime(maint_display['Last_Serviced'], errors='coerce').dt.date
     
-    if lang == "he":
-        cols = ["Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"]
-    else:
-        cols = ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced"]
-        
+    cols = ["Safety_Cleared", "Req_Safety", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Req_Safety", "Safety_Cleared"]
+    
+    # Disable safety clearance for non-admins to prevent them from approving their own work
+    disabled_cols = [] if is_admin else ["Safety_Cleared", "Req_Safety"]
+
     edited_maint = st.data_editor(
-        maint_display, column_order=cols, num_rows="dynamic", use_container_width=True,
+        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
             "Task_HE": st.column_config.TextColumn("תיאור טיפול/בדיקה"),
             "Freq_Days": st.column_config.NumberColumn(t[lang]["col_freq"]),
-            "Last_Serviced": st.column_config.DateColumn(t[lang]["col_last_serv"], format="YYYY-MM-DD")
+            "Last_Serviced": st.column_config.DateColumn(t[lang]["col_last_serv"], format="YYYY-MM-DD"),
+            "Req_Safety": st.column_config.CheckboxColumn(t[lang]["req_safety"]),
+            "Safety_Cleared": st.column_config.CheckboxColumn(t[lang]["safety_cleared"])
         }
     )
     if not edited_maint.equals(maint_display):
