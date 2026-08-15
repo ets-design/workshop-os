@@ -18,137 +18,57 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- PRO-CRM AESTHETIC CSS INJECTION ---
-css_base = """
-<style>
-/* 1. SAFE TYPOGRAPHY (Target text ONLY, protecting the UI icons) */
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
-
-html, body, p, h1, h2, h3, h4, h5, h6, span:not(.material-symbols-rounded), label, div.stButton button p {
-    font-family: 'Calibri', 'Heebo', sans-serif !important;
-}
-.material-symbols-rounded, svg {
-    font-family: 'Material Symbols Rounded', sans-serif !important;
-}
-
-/* 2. CRM BACKGROUND & CLEANUP */
-.stApp { background-color: #F8FAFC !important; }
-
-/* FIX: Do not touch the header at all to guarantee the menu button survives. 
-   Only hide the footer and the "Manage App" top toolbar. */
-footer, [data-testid="stToolbar"] { display: none !important; }
-
-/* 3. HEADINGS */
-h1, h2, h3 { color: #0F172A !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
-
-/* 4. SIDEBAR MENU STYLING */
-[data-testid="stSidebar"] {
-    background-color: #FFFFFF !important;
-    box-shadow: 2px 0 20px rgba(0,0,0,0.04) !important;
-    border: none !important;
-    min-width: 330px !important;
-    max-width: 380px !important;
-}
-[data-testid="stSidebar"] div.stButton > button {
-    background-color: transparent !important;
-    color: #475569 !important;
-    border: 1px solid transparent !important;
-    box-shadow: none !important;
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    padding: 0.5rem 1rem !important;
-    transition: all 0.2s ease !important;
-    width: 100% !important; 
-    white-space: nowrap !important; /* Prevents text from wrapping/disappearing */
-}
-[data-testid="stSidebar"] div.stButton > button:hover {
-    background-color: #F1F5F9 !important;
-    color: #0F172A !important;
-}
-
-/* 5. MAIN ACTION BUTTONS */
-[data-testid="stVerticalBlock"] div.stButton > button {
-    background-color: #2563EB !important;
-    color: #FFFFFF !important;
-    border-radius: 8px !important;
-    border: none !important;
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
-    font-weight: 500 !important;
-    transition: all 0.2s ease-in-out !important;
-}
-[data-testid="stVerticalBlock"] div.stButton > button:hover {
-    background-color: #1D4ED8 !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3) !important;
-}
-
-/* 6. CARDS (Data Tables & Forms) */
-[data-testid="stDataFrame"] > div {
-    background-color: #FFFFFF !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05) !important;
-    border: 1px solid #E2E8F0 !important;
-    padding: 0.5rem !important;
-}
-[data-testid="stExpander"] {
-    background-color: #FFFFFF !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05) !important;
-    border: 1px solid #E2E8F0 !important;
-    margin-bottom: 1.5rem !important;
-}
-
-/* 7. ALERTS & INPUTS */
-[data-testid="stAlert"] {
-    border-radius: 10px !important;
-    border: none !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
-}
-input, select, textarea {
-    border-radius: 8px !important;
-    border: 1px solid #CBD5E1 !important;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.02) !important;
-}
-div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
-</style>
-"""
-
-css_rtl = """
-<style>
-/* RTL SPECIFIC ALIGNMENT */
-.block-container, [data-testid="stSidebarUserContent"] { direction: rtl !important; }
-.stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label { text-align: right !important; }
-input, select, textarea { text-align: right !important; }
-[data-testid="stDataFrame"], [data-testid="stDataFrame"] > div { direction: rtl !important; }
-[data-testid="stSidebar"] div.stButton > button p { text-align: right !important; }
-
-/* Flip the Expand/Collapse arrows in Hebrew */
-[data-testid="stSidebarCollapseButton"] svg, [data-testid="collapsedControl"] svg {
-    transform: scaleX(-1) !important;
-}
-
-@media screen and (min-width: 768px) {
-    /* Set the app structural direction */
-    .stApp { direction: rtl !important; }
-}
-</style>
-"""
-
-css_ltr = """
-<style>
-/* LTR SPECIFIC ALIGNMENT */
-[data-testid="stSidebar"] div.stButton > button p {
-    text-align: left !important;
-}
-</style>
-"""
-
-st.markdown(css_base, unsafe_allow_html=True)
+# --- RESPONSIVE RTL CSS INJECTION ---
 if lang == "he":
-    st.markdown(css_rtl, unsafe_allow_html=True)
-else:
-    st.markdown(css_ltr, unsafe_allow_html=True)
+    st.markdown(
+        """
+        <style>
+        /* Hide password eye globally */
+        div[data-testid="stTextInput"] button { display: none !important; }
 
+        /* Force RTL inside content containers on ALL devices */
+        .block-container, [data-testid="stSidebarUserContent"] {
+            direction: rtl !important;
+        }
+
+        /* Ensure right alignment for typography and inputs */
+        .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
+            text-align: right !important;
+        }
+        input, select, textarea {
+            text-align: right !important;
+        }
+
+        /* Fix DataFrames direction */
+        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
+            direction: rtl !important;
+        }
+
+        /* Center button text */
+        .stButton>button {
+            text-align: center !important;
+        }
+
+        /* DESKTOP ONLY: Move sidebar to the right. 
+           We leave mobile alone so the hamburger menu and slide-out mechanics don't break. */
+        @media screen and (min-width: 768px) {
+            .stApp, [data-testid="stHeader"] {
+                direction: rtl !important;
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 t = {
     "en": {
@@ -242,6 +162,7 @@ t = {
 }
 
 # --- NAVIGATION MENUS ---
+st.sidebar.markdown("---")
 if st.sidebar.button(t[lang]["nav_home"], use_container_width=True): navigate_to("Homepage")
 if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_to("Equipment")
 if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to("Jigs")
@@ -249,7 +170,6 @@ if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
 
 # --- ADMIN AUTHENTICATION ---
-st.sidebar.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 admin_pin = st.sidebar.text_input(t[lang]["admin_pin"], type="password")
 is_admin = (admin_pin == "2004")
@@ -316,6 +236,7 @@ row_control = "dynamic" if is_admin else "fixed"
 # --- PAGE: HOMEPAGE (DASHBOARD) ---
 if st.session_state.current_page == "Homepage":
     st.header(t[lang]["nav_home"])
+    st.markdown("---")
     
     col1, col2 = st.columns(2) if lang == "en" else reversed(st.columns(2))
     
@@ -463,7 +384,7 @@ elif st.session_state.current_page == "Equipment":
     disabled_cols_eq = [] if is_admin else cols
     
     edited_eq = st.data_editor(
-        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq, height=550,
+        eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
             "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
@@ -517,7 +438,7 @@ elif st.session_state.current_page == "Jigs":
     disabled_cols_jigs = [] if is_admin else cols
     
     edited_jigs = st.data_editor(
-        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs, height=550,
+        jigs_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_jigs,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Name_EN": st.column_config.TextColumn("Jig/Config. Name"),
@@ -561,7 +482,7 @@ elif st.session_state.current_page == "Consumables":
     disabled_cols_cons = [] if is_admin else [c for c in cols if c != "Stock"]
     
     edited_cons = st.data_editor(
-        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons, height=550,
+        cons_df, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_cons,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Item_EN": st.column_config.TextColumn("Item Name"),
@@ -618,7 +539,7 @@ elif st.session_state.current_page == "Maintenance":
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
-        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True, height=550,
+        maint_display, column_order=cols, num_rows=row_control, use_container_width=True, disabled=disabled_cols, hide_index=True,
         column_config={
             "Machine_ID": st.column_config.SelectboxColumn(t[lang]["col_mach_id"], options=machine_ids),
             "Task_EN": st.column_config.TextColumn("Task Description"),
