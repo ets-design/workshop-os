@@ -18,57 +18,89 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- RESPONSIVE RTL CSS INJECTION ---
+# --- PRO-CRM AESTHETIC & RTL INJECTION ---
+css_base = """
+<style>
+/* Import premium web font fallback for bilingual support */
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap');
+
+/* Global Typography: Prioritize Calibri, fallback to modern Heebo */
+html, body, [class*="css"] {
+    font-family: 'Calibri', 'Heebo', sans-serif !important;
+}
+
+/* Hide Streamlit Branding for standalone software feel */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* CRM Card Styling for Alerts */
+.stAlert {
+    border-radius: 10px !important;
+    border: none !important;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.1) !important;
+    margin-bottom: 0.85rem !important;
+    padding: 1rem !important;
+}
+
+/* Elegant Expanders (Add Item Forms) */
+[data-testid="stExpander"] {
+    border-radius: 10px !important;
+    box-shadow: 0 2px 8px -1px rgba(0,0,0,0.08) !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+/* Tactile Button Animations */
+.stButton>button {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+}
+
+/* Refined Typography */
+h1, h2, h3 {
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+}
+
+/* Hide password eye globally */
+div[data-testid="stTextInput"] button { display: none !important; }
+</style>
+"""
+
+css_rtl = """
+<style>
+/* Responsive RTL Architecture */
+.block-container, [data-testid="stSidebarUserContent"] {
+    direction: rtl !important;
+}
+.stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
+    text-align: right !important;
+}
+input, select, textarea {
+    text-align: right !important;
+}
+[data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
+    direction: rtl !important;
+}
+.stButton>button {
+    text-align: center !important;
+}
+@media screen and (min-width: 768px) {
+    .stApp, [data-testid="stHeader"] {
+        direction: rtl !important;
+    }
+}
+</style>
+"""
+
+st.markdown(css_base, unsafe_allow_html=True)
 if lang == "he":
-    st.markdown(
-        """
-        <style>
-        /* Hide password eye globally */
-        div[data-testid="stTextInput"] button { display: none !important; }
-
-        /* Force RTL inside content containers on ALL devices */
-        .block-container, [data-testid="stSidebarUserContent"] {
-            direction: rtl !important;
-        }
-
-        /* Ensure right alignment for typography and inputs */
-        .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
-            text-align: right !important;
-        }
-        input, select, textarea {
-            text-align: right !important;
-        }
-
-        /* Fix DataFrames direction */
-        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
-            direction: rtl !important;
-        }
-
-        /* Center button text */
-        .stButton>button {
-            text-align: center !important;
-        }
-
-        /* DESKTOP ONLY: Move sidebar to the right. 
-           We leave mobile alone so the hamburger menu and slide-out mechanics don't break. */
-        @media screen and (min-width: 768px) {
-            .stApp, [data-testid="stHeader"] {
-                direction: rtl !important;
-            }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown(css_rtl, unsafe_allow_html=True)
 
 t = {
     "en": {
