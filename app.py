@@ -18,17 +18,28 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- GLOBAL FONT INJECTION (Assistant - Universal EN/HE Font) ---
+# --- GLOBAL FONT (Rubik) & ICON PROTECTION ---
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap');
-    
-    html, body, [class*="css"], .stApp, .block-container, .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, div, input, select, textarea, button, table, td, th {
-        font-family: 'Assistant', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
+
+    /* Apply Rubik to base layout */
+    html, body, .stApp {
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    
-    /* Hide password eye globally */
+
+    /* Target text and input containers without overriding icon font families */
+    .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+
+    /* Protect Streamlit internal icon ligatures from being broken */
+    [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
+    }
+
+    /* Hide password reveal eye globally */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
     """,
@@ -40,12 +51,12 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Safe RTL layout that preserves Streamlit's mobile responsive grid */
+        /* Safe RTL layout preserving mobile grid */
         .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
 
-        /* Ensure right alignment for typography and inputs */
+        /* Typography & input alignment */
         .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
             text-align: right !important;
         }
@@ -54,17 +65,17 @@ if lang == "he":
             direction: rtl !important;
         }
 
-        /* Fix DataFrames direction */
+        /* DataFrames RTL */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
 
-        /* Center button text */
+        /* Button text centering */
         .stButton>button {
             text-align: center !important;
         }
 
-        /* DESKTOP ONLY: Move sidebar to the right. */
+        /* Desktop only sidebar repositioning */
         @media screen and (min-width: 768px) {
             .stApp, [data-testid="stHeader"] {
                 direction: rtl !important;
