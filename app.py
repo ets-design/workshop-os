@@ -18,39 +18,48 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- GLOBAL FONT (Rubik) & CANVAS TABLE INJECTION ---
+# --- GLOBAL FONT, CANVAS TABLE OVERRIDE & ICON PROTECTION ---
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
 
-    /* Apply Rubik to root DOM */
+    /* 1. Set root CSS variables that Glide Data Grid reads for canvas drawing */
+    :root {
+        --font: 'Rubik', sans-serif !important;
+        --gdg-font-family: 'Rubik', sans-serif !important;
+    }
+
+    /* 2. Hijack Glide Data Grid default font fallbacks so Canvas renders Rubik */
+    @font-face {
+        font-family: 'Inter';
+        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
+    }
+    @font-face {
+        font-family: 'Source Sans Pro';
+        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
+    }
+    @font-face {
+        font-family: 'Source Sans 3';
+        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
+    }
+
+    /* 3. Base DOM styling */
     html, body, .stApp {
         font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Target standard UI text & inputs */
+    /* 4. Target UI controls and typography */
     .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
         font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Force Rubik onto DataFrames, Glide Data Grid canvas, and table overlays */
-    [data-testid="stDataFrame"], 
-    [data-testid="stDataFrame"] *, 
-    [data-testid="stDataFrame"] canvas,
-    .glideDataGrid, 
-    .gdg-style, 
-    .dvn-scroller,
-    .dvn-underlay {
-        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    }
-
-    /* Protect Streamlit icon ligatures */
+    /* 5. Protect internal icon ligatures from being overridden */
     [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
 
-    /* Hide password reveal eye */
+    /* 6. Hide password reveal eye */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
     """,
