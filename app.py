@@ -51,9 +51,14 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Safe RTL layout preserving mobile grid */
-        .block-container, [data-testid="stSidebarUserContent"] {
+        /* Force RTL layout globally for Hebrew */
+        .stApp, [data-testid="stHeader"], .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
+        }
+
+        /* Disable Streamlit's hardcoded LTR slide animation to prevent the reversed "jump" */
+        [data-testid="stSidebar"], [data-testid="stSidebarNav"] {
+            transition: none !important;
         }
 
         /* Typography & input alignment */
@@ -65,28 +70,20 @@ if lang == "he":
             direction: rtl !important;
         }
 
-        /* DataFrames RTL */
+        /* Fix DataFrames direction */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
 
-        /* Button text centering */
+        /* Center button text */
         .stButton>button {
             text-align: center !important;
-        }
-
-        /* Desktop only sidebar repositioning */
-        @media screen and (min-width: 768px) {
-            .stApp, [data-testid="stHeader"] {
-                direction: rtl !important;
-            }
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-# Note: Added \u200f (Right-To-Left Mark) to anchor trailing symbols and brackets in Hebrew
 t = {
     "en": {
         "title": "🪚 Garage Workshop | Workshop OS",
@@ -552,6 +549,7 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
