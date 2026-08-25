@@ -18,58 +18,30 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- DEEP FONT INJECTION & CANVAS RE-RENDER ENGINE (RUBIK) ---
+# --- GLOBAL FONT (Rubik) & ICON PROTECTION ---
 st.markdown(
     """
-    <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
-    </head>
     <style>
-    /* 1. Root & Glide Data Grid Variable Overrides */
-    :root, :host, [data-testid="stAppViewContainer"], .stApp {
-        --font: 'Rubik', sans-serif !important;
-        --font-family: 'Rubik', sans-serif !important;
-        --gdg-font-family: 'Rubik', sans-serif !important;
-        --gdg-header-font-family: 'Rubik', sans-serif !important;
-        font-family: 'Rubik', sans-serif !important;
+    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
+
+    /* Apply Rubik to base layout */
+    html, body, .stApp {
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* 2. Global DOM Typography Override */
-    html, body, .stApp, .block-container, [data-testid="stSidebarUserContent"],
-    .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, input, select, textarea,
-    button, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
-        font-family: 'Rubik', sans-serif !important;
+    /* Target text and input containers without overriding icon font families */
+    .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* 3. Aggressive Canvas & Table Data Wrapper Target */
-    [data-testid="stDataFrame"], 
-    [data-testid="stDataFrame"] *, 
-    [data-testid="stDataEditor"],
-    [data-testid="stDataEditor"] *,
-    .dvn-scroller,
-    .glideDataGrid,
-    canvas {
-        font-family: 'Rubik', sans-serif !important;
-        --gdg-font-family: 'Rubik', sans-serif !important;
-    }
-
-    /* 4. Preserve internal Streamlit Material Icons */
+    /* Protect Streamlit internal icon ligatures from being broken */
     [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
 
-    /* 5. Hide password reveal eye globally */
+    /* Hide password reveal eye globally */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
-
-    <script>
-    // Force browser to wait for Rubik font readiness, then trigger a Canvas repaint
-    document.fonts.load('14px "Rubik"').then(function () {
-        window.dispatchEvent(new Event('resize'));
-    });
-    </script>
     """,
     unsafe_allow_html=True
 )
@@ -79,10 +51,12 @@ if lang == "he":
     st.markdown(
         """
         <style>
+        /* Safe RTL layout preserving mobile grid */
         .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
 
+        /* Typography & input alignment */
         .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
             text-align: right !important;
         }
@@ -91,14 +65,17 @@ if lang == "he":
             direction: rtl !important;
         }
 
+        /* DataFrames RTL */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
 
+        /* Button text centering */
         .stButton>button {
             text-align: center !important;
         }
 
+        /* Desktop only sidebar repositioning */
         @media screen and (min-width: 768px) {
             .stApp, [data-testid="stHeader"] {
                 direction: rtl !important;
@@ -109,6 +86,7 @@ if lang == "he":
         unsafe_allow_html=True
     )
 
+# Note: Added \u200f (Right-To-Left Mark) to anchor trailing symbols and brackets in Hebrew
 t = {
     "en": {
         "title": "🪚 Garage Workshop | Workshop OS",
@@ -314,6 +292,7 @@ if st.session_state.current_page == "Homepage":
         if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
+            # Overdue loop
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
@@ -347,6 +326,7 @@ if st.session_state.current_page == "Homepage":
                             save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
                             st.rerun()
 
+            # Upcoming loop
             for idx, row in upcoming.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
