@@ -18,48 +18,32 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- GLOBAL FONT, CANVAS TABLE OVERRIDE & ICON PROTECTION ---
+# --- GLOBAL NATIVE UI FONT & ICON PROTECTION ---
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
-
-    /* 1. Set root CSS variables that Glide Data Grid reads for canvas drawing */
+    /* 1. Set root CSS variables for the Canvas rendering engine to use Native UI Fonts */
     :root {
-        --font: 'Rubik', sans-serif !important;
-        --gdg-font-family: 'Rubik', sans-serif !important;
+        --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+        --gdg-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* 2. Hijack Glide Data Grid default font fallbacks so Canvas renders Rubik */
-    @font-face {
-        font-family: 'Inter';
-        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
-    }
-    @font-face {
-        font-family: 'Source Sans Pro';
-        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
-    }
-    @font-face {
-        font-family: 'Source Sans 3';
-        src: local('Rubik'), url('https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-4I-1.woff2') format('woff2');
+    /* 2. Apply Native UI Font to base HTML elements and inputs */
+    html, body, .stApp, .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* 3. Base DOM styling */
-    html, body, .stApp {
-        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    /* 3. Aggressively target Streamlit DataFrames */
+    [data-testid="stDataFrame"], [data-testid="stDataFrame"] *, canvas {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
     }
 
-    /* 4. Target UI controls and typography */
-    .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
-        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    }
-
-    /* 5. Protect internal icon ligatures from being overridden */
+    /* 4. Protect Streamlit internal icon ligatures from being overridden */
     [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
 
-    /* 6. Hide password reveal eye */
+    /* 5. Hide password reveal eye globally */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
     """,
@@ -71,10 +55,12 @@ if lang == "he":
     st.markdown(
         """
         <style>
+        /* Safe RTL layout preserving mobile grid */
         .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
 
+        /* Typography & input alignment */
         .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
             text-align: right !important;
         }
@@ -83,14 +69,17 @@ if lang == "he":
             direction: rtl !important;
         }
 
+        /* DataFrames RTL */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
 
+        /* Button text centering */
         .stButton>button {
             text-align: center !important;
         }
 
+        /* Desktop only sidebar repositioning */
         @media screen and (min-width: 768px) {
             .stApp, [data-testid="stHeader"] {
                 direction: rtl !important;
@@ -306,6 +295,7 @@ if st.session_state.current_page == "Homepage":
         if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
+            # Overdue loop
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
@@ -339,6 +329,7 @@ if st.session_state.current_page == "Homepage":
                             save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
                             st.rerun()
 
+            # Upcoming loop
             for idx, row in upcoming.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
@@ -564,6 +555,7 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
