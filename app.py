@@ -1,7 +1,48 @@
 import streamlit as st
 import pandas as pd
-import os
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
+
+# --- GOOGLE SHEETS CONFIGURATION ---
+SHEET_ID = "1bN8Js3DE1VWFLadAhJPktnST10gk8gSXCQYRfdmU-Qw"
+
+@st.cache_resource
+def get_gspread_client():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds_json = json.loads(st.secrets["gcp_service_account"])
+    credentials = Credentials.from_service_account_info(creds_json, scopes=scopes)
+    return gspread.authorize(credentials)
+
+def load_data(tab_name, default_df):
+    client = get_gspread_client()
+    try:
+        ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
+        val = ws.get_all_values()
+        if not val:
+            save_data(default_df, tab_name)
+            return default_df.copy()
+        data = ws.get_all_records()
+        if not data: 
+            return pd.DataFrame(columns=default_df.columns)
+        return pd.DataFrame(data)
+    except gspread.exceptions.WorksheetNotFound:
+        spreadsheet = client.open_by_key(SHEET_ID)
+        spreadsheet.add_worksheet(title=tab_name, rows="100", cols="20")
+        save_data(default_df, tab_name)
+        return default_df.copy()
+
+def save_data(df, tab_name):
+    client = get_gspread_client()
+    ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
+    ws.clear()
+    df_clean = df.fillna("")
+    data_to_save = [df_clean.columns.values.tolist()] + df_clean.astype(str).values.tolist()
+    ws.update(values=data_to_save, range_name="A1")
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Garage Workshop OS", page_icon="🪚", layout="wide")
@@ -23,23 +64,13 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
-
-    /* Apply Rubik to base layout */
-    html, body, .stApp {
-        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    /* Target text and input containers without overriding icon font families */
+    html, body, .stApp { font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif; }
     .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
         font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
-
-    /* Protect Streamlit internal icon ligatures from being broken */
     [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
-
-    /* Hide password reveal eye globally */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
     """,
@@ -51,35 +82,16 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Keep sidebar on the left, but force RTL text/layout inside the content containers */
-        .block-container, [data-testid="stSidebarUserContent"] {
-            direction: rtl !important;
-        }
-
-        /* Typography & input alignment */
-        .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
-            text-align: right !important;
-        }
-        input, select, textarea {
-            text-align: right !important;
-            direction: rtl !important;
-        }
-
-        /* DataFrames RTL */
-        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
-            direction: rtl !important;
-        }
-
-        /* Button text centering */
-        .stButton>button {
-            text-align: center !important;
-        }
+        .block-container, [data-testid="stSidebarUserContent"] { direction: rtl !important; }
+        .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label { text-align: right !important; }
+        input, select, textarea { text-align: right !important; direction: rtl !important; }
+        [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div { direction: rtl !important; }
+        .stButton>button { text-align: center !important; }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-# Note: Added \u200f (Right-To-Left Mark) to anchor trailing symbols and brackets in Hebrew
 t = {
     "en": {
         "title": "🪚 Garage Workshop | Workshop OS",
@@ -191,50 +203,41 @@ else:
 
 st.title(t[lang]["title"])
 
-# --- DATA INITIALIZATION & AUTO-HEAL ---
-def load_data(file): return pd.read_csv(file)
-def save_data(df, file): df.to_csv(file, index=False)
+# --- SAFE LOAD & TYPING (GOOGLE SHEETS) ---
+def parse_bool(val):
+    if isinstance(val, bool): return val
+    if pd.isna(val) or val == "": return False
+    return str(val).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
-if not os.path.exists("equipment.csv"):
-    pd.DataFrame({"ID": [], "Category": [], "Name": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []}).to_csv("equipment.csv", index=False)
-if not os.path.exists("consumables.csv"):
-    pd.DataFrame({"Machine_ID": [], "Item_EN": [], "Item_HE": [], "Stock": [], "Threshold": [], "PPU": [], "Grade": []}).to_csv("consumables.csv", index=False)
-if not os.path.exists("jigs.csv"):
-    pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []}).to_csv("jigs.csv", index=False)
-if not os.path.exists("maintenance.csv"):
-    pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": [], "Pending_Approval": []}).to_csv("maintenance.csv", index=False)
-
-# Safe Load & Strict Typing: Equipment
-eq_df = load_data("equipment.csv")
+# Equipment
+default_eq = pd.DataFrame({"ID": [], "Category": [], "Name": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
+eq_df = load_data("equipment", default_eq)
 for col in ["ID", "Category", "Name", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
     eq_df[col] = eq_df.get(col, "").fillna("").astype(str)
-eq_df["Is_Private"] = eq_df.get("Is_Private", False).fillna(False).astype(bool)
+eq_df["Is_Private"] = eq_df.get("Is_Private", False).apply(parse_bool)
 
-# Safe Load & Strict Typing: Consumables
-cons_df = load_data("consumables.csv")
+# Consumables
+default_cons = pd.DataFrame({"Machine_ID": [], "Item_EN": [], "Item_HE": [], "Stock": [], "Threshold": [], "PPU": [], "Grade": []})
+cons_df = load_data("consumables", default_cons)
 for col in ["Machine_ID", "Item_EN", "Item_HE", "Grade"]:
     cons_df[col] = cons_df.get(col, "").fillna("").astype(str)
 cons_df["Stock"] = pd.to_numeric(cons_df.get("Stock", 0), errors='coerce').fillna(0).astype(int)
 cons_df["Threshold"] = pd.to_numeric(cons_df.get("Threshold", 0), errors='coerce').fillna(0).astype(int)
 cons_df["PPU"] = pd.to_numeric(cons_df.get("PPU", 0.0), errors='coerce').fillna(0.0).astype(float)
 
-# Safe Load & Strict Typing: Jigs
-try:
-    jigs_df = load_data("jigs.csv")
-    if 'Name_HE' not in jigs_df.columns: raise ValueError()
-except (FileNotFoundError, ValueError):
-    jigs_df = pd.DataFrame({"Machine_ID": ["MAC-01", "MAC-01", "MAC-02"], "Name_EN": ["Crosscut Sled", "Tenoning Jig", "Variable Angle Taper"], "Name_HE": ["מזחלת חיתוך (קרוסקאט)", "ג'יג סין וגרע", "חיתוך זווית משתנה"], "Purpose_EN": ["Crosscutting 90 deg", "Cutting tenons vertically", "Tapered cuts"], "Purpose_HE": ["חיתוך 90 מעלות", "חיתוך סין בצורה אנכית", "חיתוך בזווית משתנה"], "Notes_EN": ["Keep waxed", "Clamp tightly", ""], "Notes_HE": ["לשמן שעווה", "להדק היטב", ""], "Storage_EN": ["Wall Rack A", "Shelf 2", "Under MLT100"], "Storage_HE": ["קיר תלייה א'", "מדף 2", "מתחת למקיטה"]})
-    save_data(jigs_df, "jigs.csv")
-
+# Jigs
+default_jigs = pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []})
+jigs_df = load_data("jigs", default_jigs)
 for col in ["Machine_ID", "Name_EN", "Name_HE", "Purpose_EN", "Purpose_HE", "Notes_EN", "Notes_HE", "Storage_EN", "Storage_HE"]:
     jigs_df[col] = jigs_df.get(col, "").fillna("").astype(str)
 
-# Safe Load & Strict Typing: Maintenance
-maint_df = load_data("maintenance.csv")
+# Maintenance
+default_maint = pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": [], "Pending_Approval": []})
+maint_df = load_data("maintenance", default_maint)
 for col in ["Machine_ID", "Task_EN", "Task_HE", "Responsible"]:
     maint_df[col] = maint_df.get(col, "").fillna("").astype(str)
 for col in ["Req_Safety", "Safety_Cleared", "Pending_Approval"]:
-    maint_df[col] = maint_df.get(col, False).fillna(False).astype(bool)
+    maint_df[col] = maint_df.get(col, False).apply(parse_bool)
 maint_df["Freq_Days"] = pd.to_numeric(maint_df.get("Freq_Days", 30), errors='coerce').fillna(30).astype(int)
 
 machine_ids = eq_df['ID'].dropna().unique().tolist()
@@ -303,7 +306,7 @@ if st.session_state.current_page == "Homepage":
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 maint_df.at[idx, 'Pending_Approval'] = False
                                 maint_df.at[idx, 'Safety_Cleared'] = False
-                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                save_data(maint_df, "maintenance")
                                 st.rerun()
                         else:
                             st.button(t[lang]["btn_wait"], key=f"wait_ovr_{idx}", disabled=True)
@@ -316,7 +319,7 @@ if st.session_state.current_page == "Homepage":
                                     maint_df.at[idx, 'Pending_Approval'] = True
                             else:
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                            save_data(maint_df, "maintenance")
                             st.rerun()
 
             # Upcoming loop
@@ -339,7 +342,7 @@ if st.session_state.current_page == "Homepage":
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 maint_df.at[idx, 'Pending_Approval'] = False
                                 maint_df.at[idx, 'Safety_Cleared'] = False
-                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                save_data(maint_df, "maintenance")
                                 st.rerun()
                         else:
                             st.button(t[lang]["btn_wait"], key=f"wait_upc_{idx}", disabled=True)
@@ -352,11 +355,11 @@ if st.session_state.current_page == "Homepage":
                                     maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 else:
                                     maint_df.at[idx, 'Pending_Approval'] = True
-                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                save_data(maint_df, "maintenance")
                                 st.rerun()
                             else:
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
+                                save_data(maint_df, "maintenance")
                                 st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
@@ -384,7 +387,7 @@ elif st.session_state.current_page == "Equipment":
             if st.form_submit_button(t[lang]["btn_submit"]):
                 new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
                 eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                save_data(eq_df, "equipment.csv")
+                save_data(eq_df, "equipment")
                 st.rerun()
 
     eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
@@ -409,10 +412,11 @@ elif st.session_state.current_page == "Equipment":
         }
     )
     if not edited_eq.equals(eq_df_view):
-        if is_admin: save_data(edited_eq, "equipment.csv")
+        if is_admin: 
+            save_data(edited_eq, "equipment")
         else: 
             eq_df.update(edited_eq)
-            save_data(eq_df, "equipment.csv")
+            save_data(eq_df, "equipment")
         st.rerun()
 
 # --- PAGE: JIGS & MODES ---
@@ -441,7 +445,7 @@ elif st.session_state.current_page == "Jigs":
             if st.form_submit_button(t[lang]["btn_submit"]):
                 new_row = pd.DataFrame([{"Machine_ID": n_mid, "Name_EN": n_name_en, "Name_HE": n_name_he, "Purpose_EN": n_purp_en, "Purpose_HE": n_purp_he, "Notes_EN": n_notes_en, "Notes_HE": n_notes_he, "Storage_EN": n_stor_en, "Storage_HE": n_stor_he}])
                 jigs_df = pd.concat([jigs_df, new_row], ignore_index=True)
-                save_data(jigs_df, "jigs.csv")
+                save_data(jigs_df, "jigs")
                 st.rerun()
                 
     cols = ["Notes_HE", "Storage_HE", "Purpose_HE", "Name_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Name_EN", "Purpose_EN", "Storage_EN", "Notes_EN"]
@@ -462,7 +466,7 @@ elif st.session_state.current_page == "Jigs":
         }
     )
     if not edited_jigs.equals(jigs_df):
-        save_data(edited_jigs, "jigs.csv")
+        save_data(edited_jigs, "jigs")
         st.rerun()
 
 # --- PAGE: CONSUMABLES ---
@@ -485,7 +489,7 @@ elif st.session_state.current_page == "Consumables":
             if st.form_submit_button(t[lang]["btn_submit"]):
                 new_row = pd.DataFrame([{"Machine_ID": n_mid, "Item_EN": n_item_en, "Item_HE": n_item_he, "Stock": n_stock, "Threshold": n_thresh, "PPU": n_ppu, "Grade": n_grade}])
                 cons_df = pd.concat([cons_df, new_row], ignore_index=True)
-                save_data(cons_df, "consumables.csv")
+                save_data(cons_df, "consumables")
                 st.rerun()
                 
     cols = ["Grade", "PPU", "Threshold", "Stock", "Item_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Item_EN", "Stock", "Threshold", "PPU", "Grade"]
@@ -504,7 +508,7 @@ elif st.session_state.current_page == "Consumables":
         }
     )
     if not edited_cons.equals(cons_df):
-        save_data(edited_cons, "consumables.csv")
+        save_data(edited_cons, "consumables")
         st.rerun()
 
 # --- PAGE: MAINTENANCE ---
@@ -528,7 +532,7 @@ elif st.session_state.current_page == "Maintenance":
             if st.form_submit_button(t[lang]["btn_submit"]):
                 new_row = pd.DataFrame([{"Machine_ID": n_mid, "Task_EN": n_task_en, "Task_HE": n_task_he, "Freq_Days": n_freq, "Last_Serviced": n_date.strftime('%Y-%m-%d'), "Req_Safety": n_req_safety, "Safety_Cleared": False, "Responsible": n_resp, "Pending_Approval": False}])
                 maint_df = pd.concat([maint_df, new_row], ignore_index=True)
-                save_data(maint_df, "maintenance.csv")
+                save_data(maint_df, "maintenance")
                 st.rerun()
                 
     maint_display = maint_df.copy()
@@ -545,7 +549,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
@@ -574,5 +577,5 @@ elif st.session_state.current_page == "Maintenance":
                 
         save_df = edited_maint.drop(columns=['Next_Due'])
         save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
-        save_data(save_df, "maintenance.csv")
+        save_data(save_df, "maintenance")
         st.rerun()
