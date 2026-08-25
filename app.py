@@ -18,28 +18,39 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
-# --- GLOBAL FONT (Rubik) & ICON PROTECTION ---
+# --- GLOBAL FONT (Rubik) & CANVAS TABLE INJECTION ---
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
 
-    /* Apply Rubik to base layout */
+    /* Apply Rubik to root DOM */
     html, body, .stApp {
-        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Target text and input containers without overriding icon font families */
+    /* Target standard UI text & inputs */
     .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, input, select, textarea, .stButton button, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
         font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
 
-    /* Protect Streamlit internal icon ligatures from being broken */
+    /* Force Rubik onto DataFrames, Glide Data Grid canvas, and table overlays */
+    [data-testid="stDataFrame"], 
+    [data-testid="stDataFrame"] *, 
+    [data-testid="stDataFrame"] canvas,
+    .glideDataGrid, 
+    .gdg-style, 
+    .dvn-scroller,
+    .dvn-underlay {
+        font-family: 'Rubik', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+
+    /* Protect Streamlit icon ligatures */
     [data-testid="stIcon"], [class*="material-symbols"], [class*="material-icons"], .material-symbols-rounded {
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
 
-    /* Hide password reveal eye globally */
+    /* Hide password reveal eye */
     div[data-testid="stTextInput"] button { display: none !important; }
     </style>
     """,
@@ -51,12 +62,10 @@ if lang == "he":
     st.markdown(
         """
         <style>
-        /* Safe RTL layout preserving mobile grid */
         .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
 
-        /* Typography & input alignment */
         .stMarkdown, .stMarkdown p, h1, h2, h3, h4, h5, h6, label {
             text-align: right !important;
         }
@@ -65,17 +74,14 @@ if lang == "he":
             direction: rtl !important;
         }
 
-        /* DataFrames RTL */
         [data-testid="stDataFrame"], [data-testid="stDataFrame"] > div {
             direction: rtl !important;
         }
 
-        /* Button text centering */
         .stButton>button {
             text-align: center !important;
         }
 
-        /* Desktop only sidebar repositioning */
         @media screen and (min-width: 768px) {
             .stApp, [data-testid="stHeader"] {
                 direction: rtl !important;
@@ -86,7 +92,6 @@ if lang == "he":
         unsafe_allow_html=True
     )
 
-# Note: Added \u200f (Right-To-Left Mark) to anchor trailing symbols and brackets in Hebrew
 t = {
     "en": {
         "title": "🪚 Garage Workshop | Workshop OS",
@@ -292,7 +297,6 @@ if st.session_state.current_page == "Homepage":
         if overdue.empty and upcoming.empty:
             st.success(f"✅ {t[lang]['all_good_maint']}")
         else:
-            # Overdue loop
             for idx, row in overdue.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
@@ -326,7 +330,6 @@ if st.session_state.current_page == "Homepage":
                             save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance.csv")
                             st.rerun()
 
-            # Upcoming loop
             for idx, row in upcoming.iterrows():
                 c_text, c_btn = st.columns([3, 1]) if lang == "en" else reversed(st.columns([1, 3]))
                 with c_text:
