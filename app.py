@@ -18,23 +18,34 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_json, scopes=scopes)
     return gspread.authorize(credentials)
 
-def load_data(tab_name, default_df):
+# This decorator caches the Google Sheet data in RAM for 10 minutes (600 seconds)
+@st.cache_data(ttl=600, show_spinner=False)
+def pull_data(tab_name):
     client = get_gspread_client()
     try:
         ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
         val = ws.get_all_values()
-        if not val:
-            save_data(default_df, tab_name)
-            return default_df.copy()
-        data = ws.get_all_records()
-        if not data: 
-            return pd.DataFrame(columns=default_df.columns)
-        return pd.DataFrame(data)
+        if not val: return None
+        return ws.get_all_records()
     except gspread.exceptions.WorksheetNotFound:
+        return "NOT_FOUND"
+
+def load_data(tab_name, default_df):
+    data = pull_data(tab_name)
+    
+    if data == "NOT_FOUND":
+        client = get_gspread_client()
         spreadsheet = client.open_by_key(SHEET_ID)
         spreadsheet.add_worksheet(title=tab_name, rows="100", cols="20")
         save_data(default_df, tab_name)
         return default_df.copy()
+    elif data is None:
+        save_data(default_df, tab_name)
+        return default_df.copy()
+    elif not data:
+        return pd.DataFrame(columns=default_df.columns)
+    else:
+        return pd.DataFrame(data)
 
 def save_data(df, tab_name):
     client = get_gspread_client()
@@ -43,6 +54,9 @@ def save_data(df, tab_name):
     df_clean = df.fillna("")
     data_to_save = [df_clean.columns.values.tolist()] + df_clean.astype(str).values.tolist()
     ws.update(values=data_to_save, range_name="A1")
+    
+    # Wipe the short-term memory so the app fetches the fresh data immediately
+    pull_data.clear()
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Garage Workshop OS", page_icon="🪚", layout="wide")
@@ -549,6 +563,7 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
