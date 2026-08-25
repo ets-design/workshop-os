@@ -18,15 +18,29 @@ st.sidebar.title("🌐 שפה / Language")
 lang_choice = st.sidebar.radio("Select Language", ["עברית", "English"], label_visibility="collapsed")
 lang = "he" if lang_choice == "עברית" else "en"
 
+# --- GLOBAL FONT INJECTION (Assistant - Universal EN/HE Font) ---
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"], .stApp, .block-container, .stMarkdown, p, h1, h2, h3, h4, h5, h6, span, label, div, input, select, textarea, button, table, td, th {
+        font-family: 'Assistant', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }
+    
+    /* Hide password eye globally */
+    div[data-testid="stTextInput"] button { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- RESPONSIVE RTL CSS INJECTION ---
 if lang == "he":
     st.markdown(
         """
         <style>
-        /* Hide password eye globally */
-        div[data-testid="stTextInput"] button { display: none !important; }
-
-        /* Force RTL inside content containers on ALL devices */
+        /* Safe RTL layout that preserves Streamlit's mobile responsive grid */
         .block-container, [data-testid="stSidebarUserContent"] {
             direction: rtl !important;
         }
@@ -37,6 +51,7 @@ if lang == "he":
         }
         input, select, textarea {
             text-align: right !important;
+            direction: rtl !important;
         }
 
         /* Fix DataFrames direction */
@@ -49,8 +64,7 @@ if lang == "he":
             text-align: center !important;
         }
 
-        /* DESKTOP ONLY: Move sidebar to the right. 
-           We leave mobile alone so the hamburger menu and slide-out mechanics don't break. */
+        /* DESKTOP ONLY: Move sidebar to the right. */
         @media screen and (min-width: 768px) {
             .stApp, [data-testid="stHeader"] {
                 direction: rtl !important;
@@ -60,16 +74,8 @@ if lang == "he":
         """,
         unsafe_allow_html=True
     )
-else:
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stTextInput"] button { display: none !important; } /* Hide password eye */
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
+# Note: Added \u200f (Right-To-Left Mark) to anchor trailing symbols and brackets in Hebrew
 t = {
     "en": {
         "title": "🪚 Garage Workshop | Workshop OS",
@@ -136,8 +142,8 @@ t = {
         "col_grade": "דירוג איכות",
         "col_stock": "כמות במלאי",
         "col_thresh": "סף מינימום להזמנה",
-        "col_ppu": "מחיר יחידה (₪)",
-        "col_freq": "תדירות טיפול (בימים)",
+        "col_ppu": "מחיר יחידה (₪)\u200f",
+        "col_freq": "תדירות טיפול (בימים)\u200f",
         "col_last_serv": "תאריך טיפול אחרון",
         "col_next_serv": "תאריך לטיפול הבא",
         "col_resp": "אחראי",
@@ -147,7 +153,7 @@ t = {
         "add_new_maint": "➕ הוספת משימת תחזוקה",
         "btn_submit": "שמירה למאגר הנתונים",
         "req_safety": "דורש אישור בטיחות",
-        "safety_cleared": "אושר בטיחותית (מנהל)",
+        "safety_cleared": "אושר בטיחותית (מנהל)\u200f",
         "is_private": "כלי אוסף פרטי",
         "pending_admin": "⏳ ממתין לאישור בטיחות של מנהל",
         "err_safety": "⚠️ לא ניתן להשלים: ממתין לאישור בטיחות של מנהל!",
@@ -362,7 +368,7 @@ elif st.session_state.current_page == "Equipment":
             
             f_c4, f_c5 = st.columns(2)
             n_role_en = f_c4.text_input("Role (English)")
-            n_role_he = f_c5.text_input("ייעוד (עברית)")
+            n_role_he = f_c5.text_input("ייעוד (עברית)\u200f")
             
             f_c6, f_c7, f_c8 = st.columns(3)
             n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
@@ -414,19 +420,19 @@ elif st.session_state.current_page == "Jigs":
             f_c1, f_c2, f_c3 = st.columns(3)
             n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_name_en = f_c2.text_input("Jig/Config. Name (English)")
-            n_name_he = f_c3.text_input("שם הג׳יג/התצורה (עברית)")
+            n_name_he = f_c3.text_input("שם הג׳יג/התצורה (עברית)\u200f")
             
             f_c4, f_c5 = st.columns(2)
             n_purp_en = f_c4.text_input("Purpose (English)")
-            n_purp_he = f_c5.text_input("מטרה/ייעוד (עברית)")
+            n_purp_he = f_c5.text_input("מטרה/ייעוד (עברית)\u200f")
             
             f_c6, f_c7 = st.columns(2)
             n_notes_en = f_c6.text_input("Notes (English)")
-            n_notes_he = f_c7.text_input("הערות (עברית)")
+            n_notes_he = f_c7.text_input("הערות (עברית)\u200f")
             
             f_c8, f_c9 = st.columns(2)
             n_stor_en = f_c8.text_input("Storage Location (English)")
-            n_stor_he = f_c9.text_input("מקום אחסון (עברית)")
+            n_stor_he = f_c9.text_input("מקום אחסון (עברית)\u200f")
             
             if st.form_submit_button(t[lang]["btn_submit"]):
                 new_row = pd.DataFrame([{"Machine_ID": n_mid, "Name_EN": n_name_en, "Name_HE": n_name_he, "Purpose_EN": n_purp_en, "Purpose_HE": n_purp_he, "Notes_EN": n_notes_en, "Notes_HE": n_notes_he, "Storage_EN": n_stor_en, "Storage_HE": n_stor_he}])
@@ -464,7 +470,7 @@ elif st.session_state.current_page == "Consumables":
             f_c1, f_c2, f_c3 = st.columns(3)
             n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_item_en = f_c2.text_input("Item Name (English)")
-            n_item_he = f_c3.text_input("שם פריט (עברית)")
+            n_item_he = f_c3.text_input("שם פריט (עברית)\u200f")
             
             f_c4, f_c5, f_c6, f_c7 = st.columns(4)
             n_stock = f_c4.number_input(t[lang]["col_stock"], min_value=0, value=1)
@@ -506,7 +512,7 @@ elif st.session_state.current_page == "Maintenance":
             f_c1, f_c2, f_c3 = st.columns(3)
             n_mid = f_c1.selectbox(t[lang]["col_mach_id"], options=machine_ids)
             n_task_en = f_c2.text_input("Task Description (English)")
-            n_task_he = f_c3.text_input("תיאור טיפול (עברית)")
+            n_task_he = f_c3.text_input("תיאור טיפול (עברית)\u200f")
             
             f_c4, f_c5, f_c6 = st.columns(3)
             n_freq = f_c4.number_input(t[lang]["col_freq"], min_value=1, value=30)
@@ -535,7 +541,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
@@ -554,7 +559,6 @@ elif st.session_state.current_page == "Maintenance":
     )
     
     if not edited_maint.equals(maint_display):
-        # Auto-catch table manual approvals by the Admin
         for idx in edited_maint.index:
             is_cleared = edited_maint.at[idx, 'Safety_Cleared'] == True
             is_pending = edited_maint.at[idx, 'Pending_Approval'] == True
@@ -564,7 +568,6 @@ elif st.session_state.current_page == "Maintenance":
                 edited_maint.at[idx, 'Pending_Approval'] = False
                 
         save_df = edited_maint.drop(columns=['Next_Due'])
-        # Convert date objects back to strings safely for CSV storage
         save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
         save_data(save_df, "maintenance.csv")
         st.rerun()
