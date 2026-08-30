@@ -236,7 +236,7 @@ default_cap = pd.DataFrame({
 cap_df = load_data("capabilities", default_cap)
 cap_options = [f"{en} | {he}" for en, he in zip(cap_df['Role_EN'].fillna(""), cap_df['Role_HE'].fillna("")) if en or he]
 
-# Equipment (Added Specs Column)
+# Equipment
 default_eq = pd.DataFrame({"ID": [], "Tool_Name_EN": [], "Tool_Name_HE": [], "Model": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Specs": [], "Grade": [], "Est_Value": [], "Is_Private": []})
 eq_df = load_data("equipment", default_eq)
 for col in ["ID", "Tool_Name_EN", "Tool_Name_HE", "Model", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Specs", "Grade"]:
@@ -442,7 +442,6 @@ elif st.session_state.current_page == "Equipment":
                 n_private = st.checkbox(t[lang]["is_private"]) if is_admin else False
                 
                 if st.form_submit_button(t[lang]["btn_submit"]):
-                    # Parse the multi-select output to save clean comma-separated strings
                     n_role_en = ", ".join([r.split(" | ")[0] for r in n_roles])
                     n_role_he = ", ".join([r.split(" | ")[1] for r in n_roles])
                     
@@ -460,7 +459,6 @@ elif st.session_state.current_page == "Equipment":
             return any(task in str(role_str) for task in selected_en_tasks)
         eq_df_view = eq_df_view[eq_df_view['Role_EN'].apply(has_capability)]
 
-    # Adding Specs between Product Link and Grade
     cols = ["Is_Private", "Grade", "Specs", "Product_Link", "Manual_Link", "Role_HE", "Model", "Tool_Name_HE", "ID"] if lang == "he" else ["ID", "Tool_Name_EN", "Model", "Role_EN", "Manual_Link", "Product_Link", "Specs", "Grade", "Is_Private"]
     if not is_admin: 
         if "Is_Private" in cols: cols.remove("Is_Private")
@@ -476,8 +474,8 @@ elif st.session_state.current_page == "Equipment":
             "Model": st.column_config.TextColumn(t[lang]["col_model"]),
             "Role_EN": st.column_config.TextColumn("Role"),
             "Role_HE": st.column_config.TextColumn("ייעוד"),
-            "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן"),
-            "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר"),
+            "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן", width="medium"),
+            "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר", width="medium"),
             "Specs": st.column_config.TextColumn(t[lang]["col_specs"]),
             "Grade": st.column_config.SelectboxColumn(t[lang]["col_grade"], options=["S", "A", "B", "C", "D", "E", "F"]),
             "Is_Private": st.column_config.CheckboxColumn(t[lang]["is_private"]),
