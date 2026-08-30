@@ -476,7 +476,7 @@ elif st.session_state.current_page == "Equipment":
             "Role_HE": st.column_config.TextColumn("ייעוד"),
             "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן", width="small"),
             "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר", width="small"),
-            "Specs": st.column_config.TextColumn(t[lang]["col_specs"]),
+            "Specs": st.column_config.TextColumn(t[lang]["col_specs"], width="medium"),
             "Grade": st.column_config.SelectboxColumn(t[lang]["col_grade"], options=["S", "A", "B", "C", "D", "E", "F"]),
             "Is_Private": st.column_config.CheckboxColumn(t[lang]["is_private"]),
             "Est_Value": None 
