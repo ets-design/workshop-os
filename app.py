@@ -122,8 +122,7 @@ t = {
         "btn_approve": "Approve ✓",
         "btn_wait": "Waiting...",
         "col_mach_id": "Tool ID",
-        "col_cat": "Category",
-        "col_name": "Name & Model",
+        "col_model": "Model",
         "col_grade": "Grade",
         "col_stock": "Current Stock",
         "col_thresh": "Reorder Threshold",
@@ -168,8 +167,7 @@ t = {
         "btn_approve": "אישור מנהל ✓",
         "btn_wait": "ממתין...",
         "col_mach_id": "קוד כלי",
-        "col_cat": "קטגוריה",
-        "col_name": "שם/דגם",
+        "col_model": "דגם",
         "col_grade": "דירוג איכות",
         "col_stock": "כמות במלאי",
         "col_thresh": "סף מינימום להזמנה",
@@ -234,13 +232,12 @@ default_cap = pd.DataFrame({
     "Role_HE": ["חיתוך אורך", "חיתוך רוחב", "פריסת לוחות", "פריסה (Re-saw)", "חיתוך עקומות וצורני", "חיתוך עדין ודקורטיבי", "חיתוך זוויות וגרונג", "יישור פנים", "הקצעת דופן ויישור 90°", "הקצעת עובי", "עיבוד גס", "חריצה (חריץ / דאדו)", "פלייץ (מדרגה)", "חפירת נקבים (גרע / מורטיס)", "ייצור פינים (סין / טנון)", "מחברי סין צף (דומינו)", "מחברי למלו (ביסקוויט)", "קדיחת חורי כיס", "מחברי זנב יונים ואצבע", "כרסום פרופיל ופאזות", "כרסום לפי שבלונה והעתקה", "חריטה בעץ", "כיפוף והדבקת שכבות", "קידוח ניצב מדויק", "קידוח בזוויות", "קידוח קוטר רחב (פורסטנר/צירים)", "שיקוע ברגים ופקקים", "הברגה והידוק", "ליטוש דפנות וגדע", "ליטוש שולחני (סרט/דיסק)", "ליטוש עקומות פנימיות (ספינדל)", "ליטוש גימור שטח", "ליטוש גס ויישור משטחים", "הקצעה ידנית וציקלינה", "השחזה רטובה מדויקת", "השחזה יבשה גסה", "ליטוש עדין והברקה", "יישור אבני השחזה", "כבישה בוואקום", "הדבקת לוחות וכליבה", "חיתוך והתאמת פורניר", "איסוף שבבים בנפח גבוה", "שאיבה נקודתית", "סינון אוויר בחלל", "אספקת לחץ אוויר וניפוח"]
 })
 cap_df = load_data("capabilities", default_cap)
-# Generate dual-language dropdown list
 cap_options = [f"{en} | {he}" for en, he in zip(cap_df['Role_EN'].fillna(""), cap_df['Role_HE'].fillna("")) if en or he]
 
-# Equipment
-default_eq = pd.DataFrame({"ID": [], "Category": [], "Name": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
+# Equipment (Updated Column Structure)
+default_eq = pd.DataFrame({"ID": [], "Tool_Name_EN": [], "Tool_Name_HE": [], "Model": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
 eq_df = load_data("equipment", default_eq)
-for col in ["ID", "Category", "Name", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
+for col in ["ID", "Tool_Name_EN", "Tool_Name_HE", "Model", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
     eq_df[col] = eq_df.get(col, "").fillna("").astype(str)
 eq_df["Is_Private"] = eq_df.get("Is_Private", False).apply(parse_bool)
 
@@ -402,12 +399,14 @@ elif st.session_state.current_page == "Equipment":
     if is_admin:
         with st.expander(t[lang]["add_new_equip"]):
             with st.form("form_equip", clear_on_submit=True):
-                f_c1, f_c2, f_c3 = st.columns(3)
+                f_c1, f_c2 = st.columns(2)
                 n_id = f_c1.text_input(t[lang]["col_mach_id"])
-                n_cat = f_c2.text_input(t[lang]["col_cat"])
-                n_name = f_c3.text_input(t[lang]["col_name"])
+                n_model = f_c2.text_input(t[lang]["col_model"])
                 
-                # New Dropdown for Capabilities instead of plain text
+                f_c3, f_c4 = st.columns(2)
+                n_tool_name_en = f_c3.text_input("Tool Name (English) e.g., Table Saw")
+                n_tool_name_he = f_c4.text_input("שם כלי (עברית) למשל: מסור שולחן\u200f")
+                
                 n_roles = st.multiselect("Capabilities & Roles / משימות וייעוד", options=cap_options)
                 
                 f_c6, f_c7, f_c8 = st.columns(3)
@@ -422,7 +421,7 @@ elif st.session_state.current_page == "Equipment":
                     n_role_en = ", ".join([r.split(" | ")[0] for r in n_roles])
                     n_role_he = ", ".join([r.split(" | ")[1] for r in n_roles])
                     
-                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                    new_row = pd.DataFrame([{"ID": n_id, "Tool_Name_EN": n_tool_name_en, "Tool_Name_HE": n_tool_name_he, "Model": n_model, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
                     eq_df = pd.concat([eq_df, new_row], ignore_index=True)
                     save_data(eq_df, "equipment")
                     st.rerun()
@@ -433,11 +432,10 @@ elif st.session_state.current_page == "Equipment":
     if filter_tasks:
         selected_en_tasks = [t.split(" | ")[0] for t in filter_tasks]
         def has_capability(role_str):
-            # Show the machine if it possesses ANY of the selected capabilities
             return any(task in str(role_str) for task in selected_en_tasks)
         eq_df_view = eq_df_view[eq_df_view['Role_EN'].apply(has_capability)]
 
-    cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
+    cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Model", "Tool_Name_HE", "ID"] if lang == "he" else ["ID", "Tool_Name_EN", "Model", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
     if not is_admin: 
         if "Is_Private" in cols: cols.remove("Is_Private")
     
@@ -447,8 +445,9 @@ elif st.session_state.current_page == "Equipment":
         eq_df_view, column_order=cols, num_rows=row_control, use_container_width=True, hide_index=True, disabled=disabled_cols_eq,
         column_config={
             "ID": st.column_config.TextColumn(t[lang]["col_mach_id"]),
-            "Category": st.column_config.TextColumn(t[lang]["col_cat"]),
-            "Name": st.column_config.TextColumn(t[lang]["col_name"]),
+            "Tool_Name_EN": st.column_config.TextColumn("Tool Name"),
+            "Tool_Name_HE": st.column_config.TextColumn("שם כלי (סוג)"),
+            "Model": st.column_config.TextColumn(t[lang]["col_model"]),
             "Role_EN": st.column_config.TextColumn("Role"),
             "Role_HE": st.column_config.TextColumn("ייעוד"),
             "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן"),
@@ -513,7 +512,7 @@ elif st.session_state.current_page == "Jigs":
         }
     )
     if not edited_jigs.equals(jigs_df):
-        save_data(edited_jigs, "jigs")
+        save_data(jigs_df, "jigs")
         st.rerun()
 
 # --- PAGE: CONSUMABLES ---
@@ -596,7 +595,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
