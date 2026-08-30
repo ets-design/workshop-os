@@ -224,46 +224,66 @@ def parse_bool(val):
     if pd.isna(val) or val == "": return False
     return str(val).strip().lower() in ['true', '1', 't', 'y', 'yes']
 
-# CAPABILITIES DATABASE (Comprehensive Woodworking List)
+# CAPABILITIES DATABASE
 default_cap = pd.DataFrame({
-    "Category_EN": ["Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Pressing & Veneering", "Pressing & Veneering", "Pressing & Veneering", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities"],
-    "Category_HE": ["ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות"],
+    "Category_EN": ["Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Wood Turning", "Curved Bending & Forming", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Pressing & Veneering", "Pressing & Veneering", "Pressing & Veneering", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities"],
+    "Category_HE": ["ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "חריטה בעץ", "כיפוף והדבקת שכבות", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות"],
     "Role_EN": ["Rip-Cutting", "Cross-Cutting", "Sheet Breakdown", "Re-Sawing", "Curved & Contour Cutting", "Intricate & Scroll Cutting", "Mitre & Compound Cutting", "Face Flattening (Jointing)", "Edge Jointing (Squaring)", "Thickness Planing", "Rough Stock Sizing", "Grooving & Dadoing", "Rabbeting (Rebating)", "Mortising", "Tenoning", "Loose Tenon Joinery", "Plate & Biscuit Joinery", "Pocket Hole Joinery", "Dovetail & Box Joinery", "Edge Profiling & Chamfering", "Pattern & Flush Trimming", "Wood Turning", "Curved Bending & Forming", "Perpendicular Drilling", "Angle & Compound Drilling", "Large Diameter Boring", "Countersinking & Counterboring", "Thread Fastening & Driving", "Edge & End-Grain Sanding", "Stationary Sanding", "Internal Curve Sanding", "Wide-Surface Finish Sanding", "Aggressive Surface Leveling", "Hand Scraping & Shaving", "Wet Precision Grinding", "Dry Bench Grinding", "Honing & Stropping", "Stone Flattening", "Vacuum Pressing", "Panel Gluing & Clamping", "Veneer Prep & Jointing", "High-Volume Dust Collection", "Point-of-Source Vacuum", "Ambient Air Filtration", "Compressed Air Supply"],
     "Role_HE": ["חיתוך אורך", "חיתוך רוחב", "פריסת לוחות", "פריסה (Re-saw)", "חיתוך עקומות וצורני", "חיתוך עדין ודקורטיבי", "חיתוך זוויות וגרונג", "יישור פנים", "הקצעת דופן ויישור 90°", "הקצעת עובי", "עיבוד גס", "חריצה (חריץ / דאדו)", "פלייץ (מדרגה)", "חפירת נקבים (גרע / מורטיס)", "ייצור פינים (סין / טנון)", "מחברי סין צף (דומינו)", "מחברי למלו (ביסקוויט)", "קדיחת חורי כיס", "מחברי זנב יונים ואצבע", "כרסום פרופיל ופאזות", "כרסום לפי שבלונה והעתקה", "חריטה בעץ", "כיפוף והדבקת שכבות", "קידוח ניצב מדויק", "קידוח בזוויות", "קידוח קוטר רחב (פורסטנר/צירים)", "שיקוע ברגים ופקקים", "הברגה והידוק", "ליטוש דפנות וגדע", "ליטוש שולחני (סרט/דיסק)", "ליטוש עקומות פנימיות (ספינדל)", "ליטוש גימור שטח", "ליטוש גס ויישור משטחים", "הקצעה ידנית וציקלינה", "השחזה רטובה מדויקת", "השחזה יבשה גסה", "ליטוש עדין והברקה", "יישור אבני השחזה", "כבישה בוואקום", "הדבקת לוחות וכליבה", "חיתוך והתאמת פורניר", "איסוף שבבים בנפח גבוה", "שאיבה נקודתית", "סינון אוויר בחלל", "אספקת לחץ אוויר וניפוח"]
 })
 cap_df = load_data("capabilities", default_cap)
 cap_options = [f"{en} | {he}" for en, he in zip(cap_df['Role_EN'].fillna(""), cap_df['Role_HE'].fillna("")) if en or he]
 
-# Equipment (Updated Column Structure)
+# Equipment
 default_eq = pd.DataFrame({"ID": [], "Tool_Name_EN": [], "Tool_Name_HE": [], "Model": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
 eq_df = load_data("equipment", default_eq)
 for col in ["ID", "Tool_Name_EN", "Tool_Name_HE", "Model", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
-    eq_df[col] = eq_df.get(col, "").fillna("").astype(str)
-eq_df["Is_Private"] = eq_df.get("Is_Private", False).apply(parse_bool)
+    if col not in eq_df.columns:
+        eq_df[col] = ""
+    eq_df[col] = eq_df[col].fillna("").astype(str)
+if "Is_Private" not in eq_df.columns:
+    eq_df["Is_Private"] = False
+eq_df["Is_Private"] = eq_df["Is_Private"].apply(parse_bool)
 
 # Consumables
 default_cons = pd.DataFrame({"Machine_ID": [], "Item_EN": [], "Item_HE": [], "Stock": [], "Threshold": [], "PPU": [], "Grade": []})
 cons_df = load_data("consumables", default_cons)
 for col in ["Machine_ID", "Item_EN", "Item_HE", "Grade"]:
-    cons_df[col] = cons_df.get(col, "").fillna("").astype(str)
-cons_df["Stock"] = pd.to_numeric(cons_df.get("Stock", 0), errors='coerce').fillna(0).astype(int)
-cons_df["Threshold"] = pd.to_numeric(cons_df.get("Threshold", 0), errors='coerce').fillna(0).astype(int)
-cons_df["PPU"] = pd.to_numeric(cons_df.get("PPU", 0.0), errors='coerce').fillna(0.0).astype(float)
+    if col not in cons_df.columns:
+        cons_df[col] = ""
+    cons_df[col] = cons_df[col].fillna("").astype(str)
+for col in ["Stock", "Threshold"]:
+    if col not in cons_df.columns:
+        cons_df[col] = 0
+    cons_df[col] = pd.to_numeric(cons_df[col], errors='coerce').fillna(0).astype(int)
+if "PPU" not in cons_df.columns:
+    cons_df["PPU"] = 0.0
+cons_df["PPU"] = pd.to_numeric(cons_df["PPU"], errors='coerce').fillna(0.0).astype(float)
 
 # Jigs
 default_jigs = pd.DataFrame({"Machine_ID": [], "Name_EN": [], "Name_HE": [], "Purpose_EN": [], "Purpose_HE": [], "Notes_EN": [], "Notes_HE": [], "Storage_EN": [], "Storage_HE": []})
 jigs_df = load_data("jigs", default_jigs)
 for col in ["Machine_ID", "Name_EN", "Name_HE", "Purpose_EN", "Purpose_HE", "Notes_EN", "Notes_HE", "Storage_EN", "Storage_HE"]:
-    jigs_df[col] = jigs_df.get(col, "").fillna("").astype(str)
+    if col not in jigs_df.columns:
+        jigs_df[col] = ""
+    jigs_df[col] = jigs_df[col].fillna("").astype(str)
 
 # Maintenance
 default_maint = pd.DataFrame({"Machine_ID": [], "Task_EN": [], "Task_HE": [], "Freq_Days": [], "Last_Serviced": [], "Req_Safety": [], "Safety_Cleared": [], "Responsible": [], "Pending_Approval": []})
 maint_df = load_data("maintenance", default_maint)
 for col in ["Machine_ID", "Task_EN", "Task_HE", "Responsible"]:
-    maint_df[col] = maint_df.get(col, "").fillna("").astype(str)
+    if col not in maint_df.columns:
+        maint_df[col] = ""
+    maint_df[col] = maint_df[col].fillna("").astype(str)
 for col in ["Req_Safety", "Safety_Cleared", "Pending_Approval"]:
-    maint_df[col] = maint_df.get(col, False).apply(parse_bool)
-maint_df["Freq_Days"] = pd.to_numeric(maint_df.get("Freq_Days", 30), errors='coerce').fillna(30).astype(int)
+    if col not in maint_df.columns:
+        maint_df[col] = False
+    maint_df[col] = maint_df[col].apply(parse_bool)
+if "Freq_Days" not in maint_df.columns:
+    maint_df["Freq_Days"] = 30
+maint_df["Freq_Days"] = pd.to_numeric(maint_df["Freq_Days"], errors='coerce').fillna(30).astype(int)
+if "Last_Serviced" not in maint_df.columns:
+    maint_df["Last_Serviced"] = ""
 
 machine_ids = eq_df['ID'].dropna().unique().tolist()
 if not machine_ids: machine_ids = ["NO_MACHINES"]
@@ -595,6 +615,7 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
+    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
