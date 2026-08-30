@@ -18,7 +18,6 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(creds_json, scopes=scopes)
     return gspread.authorize(credentials)
 
-# This decorator caches the Google Sheet data in RAM for 10 minutes (600 seconds)
 @st.cache_data(ttl=600, show_spinner=False)
 def pull_data(tab_name):
     client = get_gspread_client()
@@ -54,8 +53,6 @@ def save_data(df, tab_name):
     df_clean = df.fillna("")
     data_to_save = [df_clean.columns.values.tolist()] + df_clean.astype(str).values.tolist()
     ws.update(values=data_to_save, range_name="A1")
-    
-    # Wipe the short-term memory so the app fetches the fresh data immediately
     pull_data.clear()
 
 # --- PAGE CONFIGURATION ---
@@ -86,6 +83,8 @@ st.markdown(
         font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons' !important;
     }
     div[data-testid="stTextInput"] button { display: none !important; }
+    /* Multiselect chips styling */
+    .stMultiSelect [data-baseweb="select"] span { font-family: 'Rubik', sans-serif !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -149,7 +148,9 @@ t = {
         "overdue": "OVERDUE",
         "admin_mode": "🛡️ Admin Mode",
         "user_mode": "👤 User Mode",
-        "admin_pin": "Admin Access PIN"
+        "admin_pin": "Admin Access PIN",
+        "filter_tasks": "🔍 Find Tools by Task",
+        "filter_tasks_prompt": "Select tasks to filter equipment..."
     },
     "he": {
         "title": "🪚 נגריית הגראז׳ | מערכת ניהול המרחב",
@@ -193,7 +194,9 @@ t = {
         "overdue": "בפיגור",
         "admin_mode": "🛡️ מצב מנהל",
         "user_mode": "👤 מצב משתמש",
-        "admin_pin": "קוד גישת מנהל"
+        "admin_pin": "קוד גישת מנהל",
+        "filter_tasks": "🔍 חיפוש כלים לפי ייעוד",
+        "filter_tasks_prompt": "בחירת משימות לסינון הכלים..."
     }
 }
 
@@ -222,6 +225,17 @@ def parse_bool(val):
     if isinstance(val, bool): return val
     if pd.isna(val) or val == "": return False
     return str(val).strip().lower() in ['true', '1', 't', 'y', 'yes']
+
+# CAPABILITIES DATABASE (Comprehensive Woodworking List)
+default_cap = pd.DataFrame({
+    "Category_EN": ["Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Sawing & Primary Sizing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Milling & Surfacing", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Joinery & Precision Shaping", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Drilling, Boring & Fastening", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sanding & Surface Prep", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Sharpening & Tool Care", "Pressing & Veneering", "Pressing & Veneering", "Pressing & Veneering", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities", "Dust Extraction & Shop Utilities"],
+    "Category_HE": ["ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "ניסור וחלוקת חומר", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "הקצעה ויישור", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "מחברים ועיבוד צורני", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "קידוח, שיקוע והברגה", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "ליטוש ועיבוד שטח", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "השחזה, יישור ותחזוקת כלים", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "כבישה, הדבקה ופורניר", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות", "שאיבה, סינון ותשתיות"],
+    "Role_EN": ["Rip-Cutting", "Cross-Cutting", "Sheet Breakdown", "Re-Sawing", "Curved & Contour Cutting", "Intricate & Scroll Cutting", "Mitre & Compound Cutting", "Face Flattening (Jointing)", "Edge Jointing (Squaring)", "Thickness Planing", "Rough Stock Sizing", "Grooving & Dadoing", "Rabbeting (Rebating)", "Mortising", "Tenoning", "Loose Tenon Joinery", "Plate & Biscuit Joinery", "Pocket Hole Joinery", "Dovetail & Box Joinery", "Edge Profiling & Chamfering", "Pattern & Flush Trimming", "Wood Turning", "Curved Bending & Forming", "Perpendicular Drilling", "Angle & Compound Drilling", "Large Diameter Boring", "Countersinking & Counterboring", "Thread Fastening & Driving", "Edge & End-Grain Sanding", "Stationary Sanding", "Internal Curve Sanding", "Wide-Surface Finish Sanding", "Aggressive Surface Leveling", "Hand Scraping & Shaving", "Wet Precision Grinding", "Dry Bench Grinding", "Honing & Stropping", "Stone Flattening", "Vacuum Pressing", "Panel Gluing & Clamping", "Veneer Prep & Jointing", "High-Volume Dust Collection", "Point-of-Source Vacuum", "Ambient Air Filtration", "Compressed Air Supply"],
+    "Role_HE": ["חיתוך אורך", "חיתוך רוחב", "פריסת לוחות", "פריסה (Re-saw)", "חיתוך עקומות וצורני", "חיתוך עדין ודקורטיבי", "חיתוך זוויות וגרונג", "יישור פנים", "הקצעת דופן ויישור 90°", "הקצעת עובי", "עיבוד גס", "חריצה (חריץ / דאדו)", "פלייץ (מדרגה)", "חפירת נקבים (גרע / מורטיס)", "ייצור פינים (סין / טנון)", "מחברי סין צף (דומינו)", "מחברי למלו (ביסקוויט)", "קדיחת חורי כיס", "מחברי זנב יונים ואצבע", "כרסום פרופיל ופאזות", "כרסום לפי שבלונה והעתקה", "חריטה בעץ", "כיפוף והדבקת שכבות", "קידוח ניצב מדויק", "קידוח בזוויות", "קידוח קוטר רחב (פורסטנר/צירים)", "שיקוע ברגים ופקקים", "הברגה והידוק", "ליטוש דפנות וגדע", "ליטוש שולחני (סרט/דיסק)", "ליטוש עקומות פנימיות (ספינדל)", "ליטוש גימור שטח", "ליטוש גס ויישור משטחים", "הקצעה ידנית וציקלינה", "השחזה רטובה מדויקת", "השחזה יבשה גסה", "ליטוש עדין והברקה", "יישור אבני השחזה", "כבישה בוואקום", "הדבקת לוחות וכליבה", "חיתוך והתאמת פורניר", "איסוף שבבים בנפח גבוה", "שאיבה נקודתית", "סינון אוויר בחלל", "אספקת לחץ אוויר וניפוח"]
+})
+cap_df = load_data("capabilities", default_cap)
+# Generate dual-language dropdown list
+cap_options = [f"{en} | {he}" for en, he in zip(cap_df['Role_EN'].fillna(""), cap_df['Role_HE'].fillna("")) if en or he]
 
 # Equipment
 default_eq = pd.DataFrame({"ID": [], "Category": [], "Name": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
@@ -320,7 +334,7 @@ if st.session_state.current_page == "Homepage":
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 maint_df.at[idx, 'Pending_Approval'] = False
                                 maint_df.at[idx, 'Safety_Cleared'] = False
-                                save_data(maint_df, "maintenance")
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance")
                                 st.rerun()
                         else:
                             st.button(t[lang]["btn_wait"], key=f"wait_ovr_{idx}", disabled=True)
@@ -333,7 +347,7 @@ if st.session_state.current_page == "Homepage":
                                     maint_df.at[idx, 'Pending_Approval'] = True
                             else:
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                            save_data(maint_df, "maintenance")
+                            save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance")
                             st.rerun()
 
             # Upcoming loop
@@ -356,7 +370,7 @@ if st.session_state.current_page == "Homepage":
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 maint_df.at[idx, 'Pending_Approval'] = False
                                 maint_df.at[idx, 'Safety_Cleared'] = False
-                                save_data(maint_df, "maintenance")
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance")
                                 st.rerun()
                         else:
                             st.button(t[lang]["btn_wait"], key=f"wait_upc_{idx}", disabled=True)
@@ -369,44 +383,63 @@ if st.session_state.current_page == "Homepage":
                                     maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
                                 else:
                                     maint_df.at[idx, 'Pending_Approval'] = True
-                                save_data(maint_df, "maintenance")
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance")
                                 st.rerun()
                             else:
                                 maint_df.at[idx, 'Last_Serviced'] = datetime.today().strftime('%Y-%m-%d')
-                                save_data(maint_df, "maintenance")
+                                save_data(maint_df.drop(columns=['Last_Serviced_DT', 'Next_Due_DT', 'Days_Until'], errors='ignore'), "maintenance")
                                 st.rerun()
 
 # --- PAGE: EQUIPMENT MASTER ---
 elif st.session_state.current_page == "Equipment":
     st.header(t[lang]["nav_equip"])
     
-    with st.expander(t[lang]["add_new_equip"]):
-        with st.form("form_equip", clear_on_submit=True):
-            f_c1, f_c2, f_c3 = st.columns(3)
-            n_id = f_c1.text_input(t[lang]["col_mach_id"])
-            n_cat = f_c2.text_input(t[lang]["col_cat"])
-            n_name = f_c3.text_input(t[lang]["col_name"])
-            
-            f_c4, f_c5 = st.columns(2)
-            n_role_en = f_c4.text_input("Role (English)")
-            n_role_he = f_c5.text_input("ייעוד (עברית)\u200f")
-            
-            f_c6, f_c7, f_c8 = st.columns(3)
-            n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
-            n_prod = f_c7.text_input("Product URL / קישור למוצר")
-            n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
-            
-            n_private = st.checkbox(t[lang]["is_private"]) if is_admin else False
-            
-            if st.form_submit_button(t[lang]["btn_submit"]):
-                new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
-                eq_df = pd.concat([eq_df, new_row], ignore_index=True)
-                save_data(eq_df, "equipment")
-                st.rerun()
+    # Task Finder UI
+    with st.container():
+        st.subheader(t[lang]["filter_tasks"])
+        filter_tasks = st.multiselect(t[lang]["filter_tasks_prompt"], options=cap_options)
+    
+    if is_admin:
+        with st.expander(t[lang]["add_new_equip"]):
+            with st.form("form_equip", clear_on_submit=True):
+                f_c1, f_c2, f_c3 = st.columns(3)
+                n_id = f_c1.text_input(t[lang]["col_mach_id"])
+                n_cat = f_c2.text_input(t[lang]["col_cat"])
+                n_name = f_c3.text_input(t[lang]["col_name"])
+                
+                # New Dropdown for Capabilities instead of plain text
+                n_roles = st.multiselect("Capabilities & Roles / משימות וייעוד", options=cap_options)
+                
+                f_c6, f_c7, f_c8 = st.columns(3)
+                n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
+                n_prod = f_c7.text_input("Product URL / קישור למוצר")
+                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+                
+                n_private = st.checkbox(t[lang]["is_private"]) if is_admin else False
+                
+                if st.form_submit_button(t[lang]["btn_submit"]):
+                    # Parse the multi-select output to save clean comma-separated strings
+                    n_role_en = ", ".join([r.split(" | ")[0] for r in n_roles])
+                    n_role_he = ", ".join([r.split(" | ")[1] for r in n_roles])
+                    
+                    new_row = pd.DataFrame([{"ID": n_id, "Category": n_cat, "Name": n_name, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                    eq_df = pd.concat([eq_df, new_row], ignore_index=True)
+                    save_data(eq_df, "equipment")
+                    st.rerun()
 
+    # Filter Logic
     eq_df_view = eq_df if is_admin else eq_df[eq_df['Is_Private'] == False].copy()
+    
+    if filter_tasks:
+        selected_en_tasks = [t.split(" | ")[0] for t in filter_tasks]
+        def has_capability(role_str):
+            # Show the machine if it possesses ANY of the selected capabilities
+            return any(task in str(role_str) for task in selected_en_tasks)
+        eq_df_view = eq_df_view[eq_df_view['Role_EN'].apply(has_capability)]
+
     cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Name", "Category", "ID"] if lang == "he" else ["ID", "Category", "Name", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
-    if not is_admin: cols.remove("Is_Private")
+    if not is_admin: 
+        if "Is_Private" in cols: cols.remove("Is_Private")
     
     disabled_cols_eq = [] if is_admin else cols
     
