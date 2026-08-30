@@ -123,6 +123,7 @@ t = {
         "btn_wait": "Waiting...",
         "col_mach_id": "Tool ID",
         "col_model": "Model",
+        "col_specs": "Key Specs",
         "col_grade": "Grade",
         "col_stock": "Current Stock",
         "col_thresh": "Reorder Threshold",
@@ -168,6 +169,7 @@ t = {
         "btn_wait": "ממתין...",
         "col_mach_id": "קוד כלי",
         "col_model": "דגם",
+        "col_specs": "מפרט טכני",
         "col_grade": "דירוג איכות",
         "col_stock": "כמות במלאי",
         "col_thresh": "סף מינימום להזמנה",
@@ -234,10 +236,10 @@ default_cap = pd.DataFrame({
 cap_df = load_data("capabilities", default_cap)
 cap_options = [f"{en} | {he}" for en, he in zip(cap_df['Role_EN'].fillna(""), cap_df['Role_HE'].fillna("")) if en or he]
 
-# Equipment
-default_eq = pd.DataFrame({"ID": [], "Tool_Name_EN": [], "Tool_Name_HE": [], "Model": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Grade": [], "Est_Value": [], "Is_Private": []})
+# Equipment (Added Specs Column)
+default_eq = pd.DataFrame({"ID": [], "Tool_Name_EN": [], "Tool_Name_HE": [], "Model": [], "Role_EN": [], "Role_HE": [], "Manual_Link": [], "Product_Link": [], "Specs": [], "Grade": [], "Est_Value": [], "Is_Private": []})
 eq_df = load_data("equipment", default_eq)
-for col in ["ID", "Tool_Name_EN", "Tool_Name_HE", "Model", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Grade"]:
+for col in ["ID", "Tool_Name_EN", "Tool_Name_HE", "Model", "Role_EN", "Role_HE", "Manual_Link", "Product_Link", "Specs", "Grade"]:
     if col not in eq_df.columns:
         eq_df[col] = ""
     eq_df[col] = eq_df[col].fillna("").astype(str)
@@ -429,10 +431,13 @@ elif st.session_state.current_page == "Equipment":
                 
                 n_roles = st.multiselect("Capabilities & Roles / משימות וייעוד", options=cap_options)
                 
-                f_c6, f_c7, f_c8 = st.columns(3)
+                f_c6, f_c7 = st.columns(2)
                 n_man = f_c6.text_input("Manual URL / קישור להוראות יצרן")
                 n_prod = f_c7.text_input("Product URL / קישור למוצר")
-                n_grade = f_c8.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
+                
+                f_c8, f_c9 = st.columns([3, 1])
+                n_specs = f_c8.text_input(f"{t[lang]['col_specs']} (e.g. 3HP, 230V, 10 inch)")
+                n_grade = f_c9.selectbox(t[lang]["col_grade"], ["S", "A", "B", "C", "D", "E", "F"])
                 
                 n_private = st.checkbox(t[lang]["is_private"]) if is_admin else False
                 
@@ -441,7 +446,7 @@ elif st.session_state.current_page == "Equipment":
                     n_role_en = ", ".join([r.split(" | ")[0] for r in n_roles])
                     n_role_he = ", ".join([r.split(" | ")[1] for r in n_roles])
                     
-                    new_row = pd.DataFrame([{"ID": n_id, "Tool_Name_EN": n_tool_name_en, "Tool_Name_HE": n_tool_name_he, "Model": n_model, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
+                    new_row = pd.DataFrame([{"ID": n_id, "Tool_Name_EN": n_tool_name_en, "Tool_Name_HE": n_tool_name_he, "Model": n_model, "Role_EN": n_role_en, "Role_HE": n_role_he, "Manual_Link": n_man, "Product_Link": n_prod, "Specs": n_specs, "Grade": n_grade, "Est_Value": 0, "Is_Private": n_private}])
                     eq_df = pd.concat([eq_df, new_row], ignore_index=True)
                     save_data(eq_df, "equipment")
                     st.rerun()
@@ -455,7 +460,8 @@ elif st.session_state.current_page == "Equipment":
             return any(task in str(role_str) for task in selected_en_tasks)
         eq_df_view = eq_df_view[eq_df_view['Role_EN'].apply(has_capability)]
 
-    cols = ["Is_Private", "Grade", "Product_Link", "Manual_Link", "Role_HE", "Model", "Tool_Name_HE", "ID"] if lang == "he" else ["ID", "Tool_Name_EN", "Model", "Role_EN", "Manual_Link", "Product_Link", "Grade", "Is_Private"]
+    # Adding Specs between Product Link and Grade
+    cols = ["Is_Private", "Grade", "Specs", "Product_Link", "Manual_Link", "Role_HE", "Model", "Tool_Name_HE", "ID"] if lang == "he" else ["ID", "Tool_Name_EN", "Model", "Role_EN", "Manual_Link", "Product_Link", "Specs", "Grade", "Is_Private"]
     if not is_admin: 
         if "Is_Private" in cols: cols.remove("Is_Private")
     
@@ -472,6 +478,7 @@ elif st.session_state.current_page == "Equipment":
             "Role_HE": st.column_config.TextColumn("ייעוד"),
             "Manual_Link": st.column_config.LinkColumn("Manual URL" if lang == "en" else "קישור להוראות יצרן"),
             "Product_Link": st.column_config.LinkColumn("Product URL" if lang == "en" else "קישור למוצר"),
+            "Specs": st.column_config.TextColumn(t[lang]["col_specs"]),
             "Grade": st.column_config.SelectboxColumn(t[lang]["col_grade"], options=["S", "A", "B", "C", "D", "E", "F"]),
             "Is_Private": st.column_config.CheckboxColumn(t[lang]["is_private"]),
             "Est_Value": None 
