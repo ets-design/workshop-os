@@ -113,6 +113,7 @@ t = {
         "nav_jigs": "📐 Jigs & Configs",
         "nav_cons": "📦 Consumables",
         "nav_maint": "🔧 Maintenance",
+        "nav_wishlist": "🛒 Wishlist",
         "dash_low_stock": "⚠️ Low Stock Alerts",
         "dash_maint": "⏰ Maintenance Tracker",
         "all_good_stock": "Stock levels are good.",
@@ -132,10 +133,17 @@ t = {
         "col_last_serv": "Last Serviced",
         "col_next_serv": "Next Service",
         "col_resp": "Responsible",
+        "col_item_name": "Item Name",
+        "col_url": "URL / Link",
+        "col_price": "Est. Price (ILS)",
+        "col_urgency": "Urgency",
+        "col_notes": "Notes",
+        "col_purchased": "Purchased ✓",
         "add_new_equip": "➕ Add New Tool",
         "add_new_jig": "➕ Add New Jig/Config",
         "add_new_cons": "➕ Add New Consumable",
         "add_new_maint": "➕ Add Maintenance Task",
+        "add_new_wish": "➕ Add to Wishlist",
         "btn_submit": "Save to Database",
         "req_safety": "Requires Safety Check",
         "safety_cleared": "Safety Cleared (Admin)",
@@ -159,6 +167,7 @@ t = {
         "nav_jigs": "📐 עזרים, ג'יגים ותצורות",
         "nav_cons": "📦 מלאי מתכלים",
         "nav_maint": "🔧 טיפולים ותחזוקה",
+        "nav_wishlist": "🛒 רשימת קניות",
         "dash_low_stock": "⚠️ התראות חוסר במלאי",
         "dash_maint": "⏰ מעקב טיפולים",
         "all_good_stock": "הכל מתקתק. אין חוסרים במלאי.",
@@ -178,10 +187,17 @@ t = {
         "col_last_serv": "תאריך טיפול אחרון",
         "col_next_serv": "תאריך לטיפול הבא",
         "col_resp": "אחראי",
+        "col_item_name": "שם הפריט",
+        "col_url": "קישור למוצר",
+        "col_price": "מחיר משוער (₪)\u200f",
+        "col_urgency": "דחיפות",
+        "col_notes": "הערות",
+        "col_purchased": "נקנה ✓",
         "add_new_equip": "➕ הוספת כלי חדש",
         "add_new_jig": "➕ הוספת ג'יג/תצורה",
         "add_new_cons": "➕ הוספת פריט מלאי חדש",
         "add_new_maint": "➕ הוספת משימת תחזוקה",
+        "add_new_wish": "➕ הוספת פריט לרשימה",
         "btn_submit": "שמירה למאגר הנתונים",
         "req_safety": "דורש אישור בטיחות",
         "safety_cleared": "אושר בטיחותית (מנהל)\u200f",
@@ -207,6 +223,7 @@ if st.sidebar.button(t[lang]["nav_equip"], use_container_width=True): navigate_t
 if st.sidebar.button(t[lang]["nav_jigs"], use_container_width=True): navigate_to("Jigs")
 if st.sidebar.button(t[lang]["nav_cons"], use_container_width=True): navigate_to("Consumables")
 if st.sidebar.button(t[lang]["nav_maint"], use_container_width=True): navigate_to("Maintenance")
+if st.sidebar.button(t[lang]["nav_wishlist"], use_container_width=True): navigate_to("Wishlist")
 
 # --- ADMIN AUTHENTICATION ---
 st.sidebar.markdown("---")
@@ -286,6 +303,20 @@ if "Freq_Days" not in maint_df.columns:
 maint_df["Freq_Days"] = pd.to_numeric(maint_df["Freq_Days"], errors='coerce').fillna(30).astype(int)
 if "Last_Serviced" not in maint_df.columns:
     maint_df["Last_Serviced"] = ""
+
+# Wishlist
+default_wish = pd.DataFrame({"Item_EN": [], "Item_HE": [], "URL": [], "Est_Price": [], "Urgency": [], "Notes_EN": [], "Notes_HE": [], "Purchased": []})
+wish_df = load_data("wishlist", default_wish)
+for col in ["Item_EN", "Item_HE", "URL", "Urgency", "Notes_EN", "Notes_HE"]:
+    if col not in wish_df.columns:
+        wish_df[col] = ""
+    wish_df[col] = wish_df[col].fillna("").astype(str)
+if "Est_Price" not in wish_df.columns:
+    wish_df["Est_Price"] = 0.0
+wish_df["Est_Price"] = pd.to_numeric(wish_df["Est_Price"], errors='coerce').fillna(0.0).astype(float)
+if "Purchased" not in wish_df.columns:
+    wish_df["Purchased"] = False
+wish_df["Purchased"] = wish_df["Purchased"].apply(parse_bool)
 
 machine_ids = eq_df['ID'].dropna().unique().tolist()
 if not machine_ids: machine_ids = ["NO_MACHINES"]
@@ -620,7 +651,6 @@ elif st.session_state.current_page == "Maintenance":
     
     cols = ["Safety_Cleared", "Req_Safety", "Responsible", "Next_Due", "Last_Serviced", "Freq_Days", "Task_HE", "Machine_ID"] if lang == "he" else ["Machine_ID", "Task_EN", "Freq_Days", "Last_Serviced", "Next_Due", "Responsible", "Req_Safety", "Safety_Cleared"]
     
-    # Strictly disable the date column for non-admins to force use of the Dashboard button
     disabled_cols = ["Next_Due"] if is_admin else ["Next_Due", "Safety_Cleared", "Req_Safety", "Last_Serviced"]
 
     edited_maint = st.data_editor(
@@ -650,4 +680,70 @@ elif st.session_state.current_page == "Maintenance":
         save_df = edited_maint.drop(columns=['Next_Due'])
         save_df['Last_Serviced'] = save_df['Last_Serviced'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else "")
         save_data(save_df, "maintenance")
+        st.rerun()
+
+# --- PAGE: WISHLIST ---
+elif st.session_state.current_page == "Wishlist":
+    st.header(t[lang]["nav_wishlist"])
+    
+    with st.expander(t[lang]["add_new_wish"]):
+        with st.form("form_wish", clear_on_submit=True):
+            f_c1, f_c2 = st.columns(2)
+            n_item_en = f_c1.text_input("Item Name (English)")
+            n_item_he = f_c2.text_input("שם הפריט (עברית)\u200f")
+            
+            n_url = st.text_input(t[lang]["col_url"])
+            
+            f_c3, f_c4 = st.columns(2)
+            n_price = f_c3.number_input(t[lang]["col_price"], min_value=0.0, step=10.0)
+            
+            he_urgency_opts = ["נמוכה", "בינונית", "גבוהה", "קריטית"]
+            en_urgency_opts = ["Low", "Medium", "High", "Critical"]
+            n_urgency = f_c4.selectbox(t[lang]["col_urgency"], en_urgency_opts if lang == "en" else he_urgency_opts)
+            
+            urgency_map_he_to_en = {"נמוכה": "Low", "בינונית": "Medium", "גבוהה": "High", "קריטית": "Critical"}
+            if lang == "he": n_urgency = urgency_map_he_to_en.get(n_urgency, "Low")
+                
+            f_c5, f_c6 = st.columns(2)
+            n_notes_en = f_c5.text_input("Notes (English)")
+            n_notes_he = f_c6.text_input("הערות (עברית)\u200f")
+            
+            if st.form_submit_button(t[lang]["btn_submit"]):
+                new_row = pd.DataFrame([{"Item_EN": n_item_en, "Item_HE": n_item_he, "URL": n_url, "Est_Price": n_price, "Urgency": n_urgency, "Notes_EN": n_notes_en, "Notes_HE": n_notes_he, "Purchased": False}])
+                wish_df = pd.concat([wish_df, new_row], ignore_index=True)
+                save_data(wish_df, "wishlist")
+                st.rerun()
+                
+    cols = ["Purchased", "Notes_HE", "Urgency", "Est_Price", "URL", "Item_HE"] if lang == "he" else ["Item_EN", "URL", "Est_Price", "Urgency", "Notes_EN", "Purchased"]
+    disabled_cols_wish = [] if is_admin else cols
+    if not is_admin and "Purchased" in disabled_cols_wish: disabled_cols_wish.remove("Purchased") # Allow anyone to mark as purchased
+    
+    display_df = wish_df.copy()
+    urgency_map_en_to_he = {"Low": "נמוכה", "Medium": "בינונית", "High": "גבוהה", "Critical": "קריטית"}
+    if lang == "he":
+        display_df["Urgency"] = display_df["Urgency"].map(lambda x: urgency_map_en_to_he.get(x, x))
+    
+    edited_wish = st.data_editor(
+        display_df, column_order=cols, num_rows="dynamic", use_container_width=True, hide_index=True, disabled=disabled_cols_wish,
+        column_config={
+            "Item_EN": st.column_config.TextColumn(t[lang]["col_item_name"]),
+            "Item_HE": st.column_config.TextColumn(t[lang]["col_item_name"]),
+            "URL": st.column_config.LinkColumn(t[lang]["col_url"], width="medium"),
+            "Est_Price": st.column_config.NumberColumn(t[lang]["col_price"], format="₪%.2f"),
+            "Urgency": st.column_config.SelectboxColumn(t[lang]["col_urgency"], options=en_urgency_opts if lang == "en" else he_urgency_opts),
+            "Notes_EN": st.column_config.TextColumn(t[lang]["col_notes"]),
+            "Notes_HE": st.column_config.TextColumn(t[lang]["col_notes"]),
+            "Purchased": st.column_config.CheckboxColumn(t[lang]["col_purchased"])
+        }
+    )
+    
+    if not edited_wish.equals(display_df):
+        if lang == "he":
+            edited_wish["Urgency"] = edited_wish["Urgency"].map(lambda x: urgency_map_he_to_en.get(x, x))
+        
+        if not is_admin:
+            wish_df.update(edited_wish)
+            save_data(wish_df, "wishlist")
+        else:
+            save_data(edited_wish, "wishlist")
         st.rerun()
