@@ -4,6 +4,7 @@ import json
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+import time
 
 # --- GOOGLE SHEETS CONFIGURATION ---
 SHEET_ID = "1bN8Js3DE1VWFLadAhJPktnST10gk8gSXCQYRfdmU-Qw"
@@ -21,13 +22,19 @@ def get_gspread_client():
 @st.cache_data(ttl=600, show_spinner=False)
 def pull_data(tab_name):
     client = get_gspread_client()
-    try:
-        ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
-        val = ws.get_all_values()
-        if not val: return None
-        return ws.get_all_records()
-    except gspread.exceptions.WorksheetNotFound:
-        return "NOT_FOUND"
+    for attempt in range(3):
+        try:
+            ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
+            val = ws.get_all_values()
+            if not val: return None
+            return ws.get_all_records()
+        except gspread.exceptions.WorksheetNotFound:
+            return "NOT_FOUND"
+        except gspread.exceptions.APIError as e:
+            if attempt < 2:
+                time.sleep(1.5 ** attempt) # Exponential backoff for API limits
+            else:
+                raise e
 
 def load_data(tab_name, default_df):
     data = pull_data(tab_name)
@@ -48,12 +55,22 @@ def load_data(tab_name, default_df):
 
 def save_data(df, tab_name):
     client = get_gspread_client()
-    ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
-    ws.clear()
-    df_clean = df.fillna("")
-    data_to_save = [df_clean.columns.values.tolist()] + df_clean.astype(str).values.tolist()
-    ws.update(values=data_to_save, range_name="A1")
-    pull_data.clear()
+    for attempt in range(3):
+        try:
+            ws = client.open_by_key(SHEET_ID).worksheet(tab_name)
+            ws.clear()
+            df_clean = df.fillna("")
+            data_to_save = [df_clean.columns.values.tolist()] + df_clean.astype(str).values.tolist()
+            ws.update(values=data_to_save, range_name="A1")
+            
+            # Target clearing specifically to avoid triggering full-app API reloads
+            pull_data.clear(tab_name)
+            break
+        except gspread.exceptions.APIError as e:
+            if attempt < 2:
+                time.sleep(1.5 ** attempt)
+            else:
+                raise e
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Garage Workshop OS", page_icon="🪚", layout="wide")
@@ -716,7 +733,7 @@ elif st.session_state.current_page == "Wishlist":
                 
     cols = ["Purchased", "Notes_HE", "Urgency", "Est_Price", "URL", "Item_HE"] if lang == "he" else ["Item_EN", "URL", "Est_Price", "Urgency", "Notes_EN", "Purchased"]
     disabled_cols_wish = [] if is_admin else cols
-    if not is_admin and "Purchased" in disabled_cols_wish: disabled_cols_wish.remove("Purchased") # Allow anyone to mark as purchased
+    if not is_admin and "Purchased" in disabled_cols_wish: disabled_cols_wish.remove("Purchased")
     
     display_df = wish_df.copy()
     urgency_map_en_to_he = {"Low": "נמוכה", "Medium": "בינונית", "High": "גבוהה", "Critical": "קריטית"}
